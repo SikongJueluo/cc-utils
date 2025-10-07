@@ -1,0 +1,32 @@
+{
+  "$schema": "https://raw.githubusercontent.com/MCJack123/TypeScriptToLua/master/tsconfig-schema.json",
+  "compilerOptions": {
+    "target": "ESNext",
+    "lib": ["ESNext"],
+    "baseUrl": ".",
+    "moduleResolution": "node",
+    "strict": true,
+    "types": [
+      "@sikongjueluo/advanced-peripherals-types",
+      "@jackmacwindows/lua-types/cc",
+      "@jackmacwindows/craftos-types",
+      "@jackmacwindows/cc-types",
+      "@typescript-to-lua/language-extensions"
+    ],
+    "paths": {
+      "@/*": ["./src/*"],
+      "@jackmacwindows/craftos-types": ["./types/craftos"],
+      "@jackmacwindows/lua-types/cc": ["./types/cc"],
+      "@sikongjueluo/advanced-peripherals-types": [
+        "./types/advanced-peripherals"
+      ]
+    }
+  },
+  "tstl": {
+    "luaTarget": "CC",
+    "luaLibImport": "require-minimal",
+    "tstlVerbose": true,
+    "noImplicitSelf": true
+  },
+  "include": ["./*.ts", "./src/**/*.ts", "./types/**/*.ts"]
+}

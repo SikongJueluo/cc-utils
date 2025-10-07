@@ -1,0 +1,11 @@
+{
+  "name": "@sikongjueluo/advanced-peripherals-types",
+  "version": "1.0.0",
+  "description": "TypeScript type definitions for base Advanced Peripherals APIs.",
+  "types": "./index.d.ts",
+  "files": [
+    "./index.d.ts"
+  ],
+  "author": "SikongJueluo",
+  "license": "MIT"
+}
