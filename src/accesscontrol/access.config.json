@@ -6,7 +6,7 @@
     "groupName": "Admin",
     "groupUsers": ["Selcon"],
     "isAllowed": true,
-    "isWarnTarget": true
+    "isNotice": true
   },
   "defaultToastConfig": {
     "title": {
@@ -17,7 +17,7 @@
       "text": "Hello %groupName% %playerName%",
       "color": "green"
     },
-    "prefix": "桃花源",
+    "prefix": "Taohuayuan",
     "brackets": "[]",
     "bracketColor": ""
   },
@@ -39,19 +39,19 @@
       "groupName": "user",
       "groupUsers": [],
       "isAllowed": true,
-      "isWarnTarget": true
+      "isNotice": true
     },
     {
       "groupName": "VIP",
       "groupUsers": [],
       "isAllowed": true,
-      "isWarnTarget": false
+      "isNotice": false
     },
     {
       "groupName": "enemy",
       "groupUsers": [],
       "isAllowed": false,
-      "isWarnTarget": false,
+      "isNotice": false,
       "toastConfig": {
         "title": {
           "text": "Warn",

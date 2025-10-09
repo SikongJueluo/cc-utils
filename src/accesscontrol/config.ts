@@ -14,7 +14,7 @@ interface ToastConfig {
 interface UserGroupConfig {
   groupName: string;
   isAllowed: boolean;
-  isWarnTarget: boolean;
+  isNotice: boolean;
   groupUsers: string[];
   toastConfig?: ToastConfig;
 }
@@ -37,26 +37,26 @@ const defaultConfig: AccessConfig = {
     groupName: "Admin",
     groupUsers: ["Selcon"],
     isAllowed: true,
-    isWarnTarget: false,
+    isNotice: false,
   },
   usersGroups: [
     {
       groupName: "user",
       groupUsers: [],
       isAllowed: true,
-      isWarnTarget: true,
+      isNotice: true,
     },
     {
       groupName: "VIP",
       groupUsers: [],
       isAllowed: true,
-      isWarnTarget: false,
+      isNotice: false,
     },
     {
       groupName: "enemies",
       groupUsers: [],
       isAllowed: false,
-      isWarnTarget: false,
+      isNotice: false,
       toastConfig: {
         title: {
           text: "Warn",
