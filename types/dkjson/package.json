@@ -1,0 +1,12 @@
+{
+  "name": "@sikongjueluo/dkjson-types",
+  "version": "1.0.0",
+  "description": "TypeScript type definitions for library dkjson APIs.",
+  "types": "./index.d.ts",
+  "files": [
+    "./*.d.ts",
+    "./index.lua"
+  ],
+  "author": "SikongJueluo",
+  "license": "MIT"
+}

@@ -5,16 +5,17 @@
   "main": "main.ts",
   "scripts": {
     "build": "tstl",
-    "build-autocraft": "tstl -p ./tsconfig.autocraft.json",
     "sync": "cp -r \"./build/*\"  \"C:\\Users\\sikongjueluo\\AppData\\Roaming\\CraftOS-PC\\computer\\0\\user\""
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
-    "@sikongjueluo/advanced-peripherals-types": "file:types/advanced-peripherals",
     "@jackmacwindows/cc-types": "file:types/cc",
     "@jackmacwindows/craftos-types": "file:types/craftos",
     "@jackmacwindows/lua-types": "^2.13.2",
     "@jackmacwindows/typescript-to-lua": "^1.28.1",
+    "@sikongjueluo/advanced-peripherals-types": "file:types/advanced-peripherals",
+    "@sikongjueluo/toml2lua-types": "file:types/toml2lua",
+    "@sikongjueluo/dkjson-types": "file:types/dkjson",
     "@typescript-to-lua/language-extensions": "^1.19.0",
     "eslint": "^9.36.0",
     "typescript": "^5.7.2",

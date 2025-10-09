@@ -58,7 +58,7 @@ function main() {
 
       // Get package NBT
       packagesContainer.pushItems(turtleLocalName, slot);
-      const packageInfo = blockReader.getBlockData().Items[1];
+      const packageInfo = blockReader.getBlockData()!.Items[1];
       // log.info(textutils.serialise(packageInfo));
 
       // Get recipe
@@ -96,7 +96,7 @@ function main() {
           restCraftCnt -= craftCnt;
 
           // Get output item
-          craftOutputItem ??= blockReader.getBlockData().Items[1];
+          craftOutputItem ??= blockReader.getBlockData()!.Items[1];
         } while (restCraftCnt > 0);
 
         // Finally output

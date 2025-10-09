@@ -8,6 +8,8 @@
     "strict": true,
     "types": [
       "@sikongjueluo/advanced-peripherals-types",
+      "@sikongjueluo/toml2lua-types",
+      "@sikongjueluo/dkjson-types",
       "@jackmacwindows/lua-types/cc",
       "@jackmacwindows/craftos-types",
       "@jackmacwindows/cc-types",
@@ -19,7 +21,9 @@
       "@jackmacwindows/lua-types/cc": ["./types/cc"],
       "@sikongjueluo/advanced-peripherals-types": [
         "./types/advanced-peripherals"
-      ]
+      ],
+      "@sikongjueluo/toml2lua-types": ["./types/toml2lua"],
+      "@sikongjueluo/dkjson-types": ["./types/dkjson"]
     }
   },
   "tstl": {

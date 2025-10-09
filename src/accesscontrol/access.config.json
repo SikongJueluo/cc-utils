@@ -1,0 +1,67 @@
+{
+  "detectRange": 64,
+  "detectInterval": 1,
+  "warnInterval": 7,
+  "adminGroupConfig": {
+    "groupName": "Admin",
+    "groupUsers": ["Selcon"],
+    "isAllowed": true,
+    "isWarnTarget": true
+  },
+  "defaultToastConfig": {
+    "title": {
+      "text": "Welcome",
+      "color": "green"
+    },
+    "msg": {
+      "text": "Hello %groupName% %playerName%",
+      "color": "green"
+    },
+    "prefix": "桃花源",
+    "brackets": "[]",
+    "bracketColor": ""
+  },
+  "warnToastConfig": {
+    "title": {
+      "text": "Attention!!!",
+      "color": "red"
+    },
+    "msg": {
+      "text": "%playerName% you are not allowed to be here",
+      "color": "red"
+    },
+    "prefix": "Taohuayuan",
+    "brackets": "[]",
+    "bracketColor": ""
+  },
+  "usersGroups": [
+    {
+      "groupName": "user",
+      "groupUsers": [],
+      "isAllowed": true,
+      "isWarnTarget": true
+    },
+    {
+      "groupName": "VIP",
+      "groupUsers": [],
+      "isAllowed": true,
+      "isWarnTarget": false
+    },
+    {
+      "groupName": "enemy",
+      "groupUsers": [],
+      "isAllowed": false,
+      "isWarnTarget": false,
+      "toastConfig": {
+        "title": {
+          "text": "Warn",
+          "color": "red"
+        },
+        "msg": {
+          "text": "Warn %playerName%",
+          "color": "red"
+        }
+      }
+    }
+  ]
+}

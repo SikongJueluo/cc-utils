@@ -26,6 +26,12 @@ importers:
       '@sikongjueluo/advanced-peripherals-types':
         specifier: file:types/advanced-peripherals
         version: file:types/advanced-peripherals
+      '@sikongjueluo/dkjson-types':
+        specifier: file:types/dkjson
+        version: file:types/dkjson
+      '@sikongjueluo/toml2lua-types':
+        specifier: file:types/toml2lua
+        version: file:types/toml2lua
       '@typescript-to-lua/language-extensions':
         specifier: ^1.19.0
         version: 1.19.0
@@ -125,6 +131,12 @@ packages:
 
   '@sikongjueluo/advanced-peripherals-types@file:types/advanced-peripherals':
     resolution: {directory: types/advanced-peripherals, type: directory}
+
+  '@sikongjueluo/dkjson-types@file:types/dkjson':
+    resolution: {directory: types/dkjson, type: directory}
+
+  '@sikongjueluo/toml2lua-types@file:types/toml2lua':
+    resolution: {directory: types/toml2lua, type: directory}
 
   '@types/estree@1.0.8':
     resolution: {integrity: sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==}
@@ -676,6 +688,10 @@ snapshots:
       fastq: 1.19.1
 
   '@sikongjueluo/advanced-peripherals-types@file:types/advanced-peripherals': {}
+
+  '@sikongjueluo/dkjson-types@file:types/dkjson': {}
+
+  '@sikongjueluo/toml2lua-types@file:types/toml2lua': {}
 
   '@types/estree@1.0.8': {}
 

@@ -477,7 +477,7 @@ declare namespace parallel {
 }
 /** @noSelf */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-interface IPeripheral {}
+declare interface IPeripheral {}
 
 /** @noSelf */
 declare class CommandPeripheral implements IPeripheral {

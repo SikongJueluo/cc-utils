@@ -1,0 +1,12 @@
+{
+  "name": "@sikongjueluo/toml2lua-types",
+  "version": "1.0.0",
+  "description": "TypeScript type definitions for library toml2lua APIs.",
+  "types": "./index.d.ts",
+  "files": [
+    "./*.d.ts",
+    "./index.lua"
+  ],
+  "author": "SikongJueluo",
+  "license": "MIT"
+}

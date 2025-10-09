@@ -1,16 +1,35 @@
 enum LogLevel {
-  Info = 0,
-  Warn = 1,
-  Error = 2,
+  Debug = 0,
+  Info = 1,
+  Warn = 2,
+  Error = 3,
 }
+
+// Define time interval constants in seconds
+export const SECOND = 1;
+export const MINUTE = 60 * SECOND;
+export const HOUR = 60 * MINUTE;
+export const DAY = 24 * HOUR;
+export const WEEK = 7 * DAY;
 
 export class CCLog {
   private fp: LuaFile | undefined;
-  constructor(filename?: string) {
+  private filename?: string;
+  private interval: number;
+  private startTime: number;
+  private currentTimePeriod: string;
+
+  constructor(filename?: string, interval: number = DAY) {
     term.clear();
     term.setCursorPos(1, 1);
+
+    this.interval = interval;
+    this.startTime = os.time(os.date("*t"));
+    this.currentTimePeriod = this.getTimePeriodString(this.startTime);
+
     if (filename != undefined && filename.length != 0) {
-      const filepath = shell.dir() + "/" + filename;
+      this.filename = filename;
+      const filepath = this.generateFilePath(filename, this.currentTimePeriod);
       const [file, error] = io.open(filepath, fs.exists(filepath) ? "a" : "w+");
       if (file != undefined) {
         this.fp = file;
@@ -20,12 +39,84 @@ export class CCLog {
     }
   }
 
+  /**
+   * Generates a time period string based on the interval
+   * For DAY interval: YYYY-MM-DD
+   * For HOUR interval: YYYY-MM-DD-HH
+   * For MINUTE interval: YYYY-MM-DD-HH-MM
+   * For SECOND interval: YYYY-MM-DD-HH-MM-SS
+   */
+  private getTimePeriodString(time: number): string {
+    // Calculate which time period this timestamp falls into
+    const periodStart = Math.floor(time / this.interval) * this.interval;
+    const periodDate = os.date("*t", periodStart);
+
+    if (this.interval >= DAY) {
+      return `${periodDate.year}-${String(periodDate.month).padStart(2, "0")}-${String(periodDate.day).padStart(2, "0")}`;
+    } else {
+      return `[${periodDate.year}-${String(periodDate.month).padStart(2, "0")}-${String(periodDate.day).padStart(2, "0")}] - [${String(periodDate.hour).padStart(2, "0")}-${String(periodDate.min).padStart(2, "0")}-${String(periodDate.sec).padStart(2, "0")}]`;
+    }
+  }
+
+  private generateFilePath(baseFilename: string, timePeriod: string): string {
+    // Extract file extension if present
+    const fileNameSubStrings = baseFilename.split(".");
+    let filenameWithoutExt: string;
+    let extension = "";
+
+    if (fileNameSubStrings.length > 1) {
+      filenameWithoutExt = fileNameSubStrings[0];
+      extension = fileNameSubStrings[1];
+    } else {
+      filenameWithoutExt = baseFilename;
+    }
+
+    return `${shell.dir()}/${filenameWithoutExt}[${timePeriod}].${extension}`;
+  }
+
+  private checkAndRotateLogFile() {
+    if (this.filename != undefined && this.filename.length != 0) {
+      const currentTime = os.time(os.date("*t"));
+      const currentTimePeriod = this.getTimePeriodString(currentTime);
+
+      // If we're in a new time period, rotate the log file
+      if (currentTimePeriod !== this.currentTimePeriod) {
+        // Close current file if open
+        if (this.fp) {
+          this.fp.close();
+          this.fp = undefined;
+        }
+
+        // Update the current time period
+        this.currentTimePeriod = currentTimePeriod;
+
+        // Open new log file for the new time period
+        const filepath = this.generateFilePath(
+          this.filename,
+          this.currentTimePeriod,
+        );
+        const [file, error] = io.open(
+          filepath,
+          fs.exists(filepath) ? "a" : "w+",
+        );
+        if (file != undefined) {
+          this.fp = file;
+        } else {
+          throw Error(error);
+        }
+      }
+    }
+  }
+
   private getFormatMsg(msg: string, level: LogLevel): string {
     const date = os.date("*t");
-    return `[ ${date.year}/${date.month}/${date.day} -- ${date.hour}:${date.min}:${date.sec} ${LogLevel[level]} ] : ${msg}\r\n`;
+    return `[ ${date.year}/${String(date.month).padStart(2, "0")}/${String(date.day).padStart(2, "0")}  ${String(date.hour).padStart(2, "0")}:${String(date.min).padStart(2, "0")}:${String(date.sec).padStart(2, "0")} ${LogLevel[level]} ] : ${msg}`;
   }
 
   public writeLine(msg: string, color?: Color) {
+    // Check if we need to rotate the log file
+    this.checkAndRotateLogFile();
+
     let originalColor: Color = 0;
     if (color != undefined) {
       originalColor = term.getTextColor();
@@ -33,17 +124,18 @@ export class CCLog {
     }
 
     // Log
-    term.write(msg);
+    print(msg);
     if (this.fp != undefined) {
-      this.fp.write(msg);
+      this.fp.write(msg + "\r\n");
     }
 
     if (color != undefined) {
       term.setTextColor(originalColor);
     }
+  }
 
-    // Next line
-    term.setCursorPos(1, term.getCursorPos()[1] + 1);
+  public debug(msg: string) {
+    this.writeLine(this.getFormatMsg(msg, LogLevel.Debug), colors.gray);
   }
 
   public info(msg: string) {
