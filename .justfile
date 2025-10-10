@@ -1,9 +1,6 @@
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
-sync-path := if os_family() == "windows" {
-    "C:\\Users\\sikongjueluo\\AppData\\Roaming\\CraftOS-PC\\computer\\0\\user\\"
-} else {
-    "/home/sikongjueluo/.local/share/craftos-pc/computer/0/user/"
-}
+
+sync-path := if os_family() == "windows" { "/cygdrive/c/Users/sikongjueluo/AppData/Roaming/CraftOS-PC/computer/0/user/" } else { "/home/sikongjueluo/.local/share/craftos-pc/computer/0/user/" }
 
 build: build-autocraft build-accesscontrol build-test build-example sync
 
@@ -21,4 +18,4 @@ build-example:
     pnpm tstl -p ./tsconfig.tuiExample.json
 
 sync:
-    rsync --delete -r "./build/" "{{sync-path}}"
+    rsync --delete -r "./build/" "{{ sync-path }}"

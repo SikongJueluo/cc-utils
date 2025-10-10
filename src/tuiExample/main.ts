@@ -8,6 +8,7 @@ import {
   InputField,
   OptionSelector,
   TabWidget,
+  Button,
 } from "../lib/ccTUI";
 
 // Create the main application
@@ -44,6 +45,9 @@ const optionSelector = new OptionSelector(
 
 const statusLabel = new TextLabel("LableStatus", 5, 11, "Status: Ready");
 
+// Create a button
+const button = new Button("ButtonSubmit", 5, 13, "Submit", colors.white, colors.blue);
+
 // Create tab widget with sample tabs - using longer tab names for testing
 const tabNames = ["Home", "Settings", "User Profile", "Messages", "About Us", "Documentation", "Advanced Settings", "Account Management"];
 const tabWidget = new TabWidget("TabWidget", 5, 3, 50, tabNames, 0);
@@ -55,6 +59,7 @@ app.addComponent(inputField);
 app.addComponent(optionLabel);
 app.addComponent(optionSelector);
 app.addComponent(statusLabel);
+app.addComponent(button);
 app.addComponent(tabWidget);
 
 // Set focus to the input field initially
@@ -79,6 +84,12 @@ tabWidget.onTabChanged.connect((data) => {
   statusLabel.setText(
     `Status: Tab changed to ${data?.name} (index: ${data?.index})`,
   );
+});
+
+button.onClick.connect(() => {
+  const inputValue = inputField.getValue();
+  const selectedOption = optionSelector.getSelectedValue();
+  statusLabel.setText(`Status: Submitted - Input: "${inputValue}", Option: "${selectedOption}"`);
 });
 
 // Run the application
