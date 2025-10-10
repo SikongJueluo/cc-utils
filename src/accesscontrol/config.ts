@@ -16,28 +16,32 @@ interface UserGroupConfig {
   isAllowed: boolean;
   isNotice: boolean;
   groupUsers: string[];
-  toastConfig?: ToastConfig;
 }
 
 interface AccessConfig {
   detectInterval: number;
-  warnInterval: number;
+  watchInterval: number;
+  noticeTimes: number;
   detectRange: number;
+  isWarn: boolean;
   adminGroupConfig: UserGroupConfig;
-  defaultToastConfig: ToastConfig;
+  welcomeToastConfig: ToastConfig;
   warnToastConfig: ToastConfig;
+  noticeToastConfig: ToastConfig;
   usersGroups: UserGroupConfig[];
 }
 
 const defaultConfig: AccessConfig = {
-  detectRange: 64,
-  detectInterval: 3,
-  warnInterval: 7,
+  detectRange: 256,
+  detectInterval: 1,
+  watchInterval: 10,
+  noticeTimes: 2,
+  isWarn: false,
   adminGroupConfig: {
     groupName: "Admin",
     groupUsers: ["Selcon"],
     isAllowed: true,
-    isNotice: false,
+    isNotice: true,
   },
   usersGroups: [
     {
@@ -57,19 +61,22 @@ const defaultConfig: AccessConfig = {
       groupUsers: [],
       isAllowed: false,
       isNotice: false,
-      toastConfig: {
-        title: {
-          text: "Warn",
-          color: "red",
-        },
-        msg: {
-          text: "Warn %playerName%",
-          color: "red",
-        },
-      },
     },
   ],
-  defaultToastConfig: {
+  welcomeToastConfig: {
+    title: {
+      text: "Welcome",
+      color: "green",
+    },
+    msg: {
+      text: "Hello User %playerName%",
+      color: "green",
+    },
+    prefix: "Taohuayuan",
+    brackets: "[]",
+    bracketColor: "",
+  },
+  noticeToastConfig: {
     title: {
       text: "Welcome",
       color: "green",

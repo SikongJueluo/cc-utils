@@ -1,20 +1,55 @@
 {
-  "detectRange": 64,
+  "detectRange": 256,
   "detectInterval": 1,
-  "warnInterval": 7,
+  "watchInterval": 10,
+  "noticeTimes": 2,
+  "isWarn": false,
   "adminGroupConfig": {
     "groupName": "Admin",
     "groupUsers": ["Selcon"],
     "isAllowed": true,
     "isNotice": true
   },
-  "defaultToastConfig": {
+  "usersGroups": [
+    {
+      "groupName": "user",
+      "groupUsers": [],
+      "isAllowed": true,
+      "isNotice": true
+    },
+    {
+      "groupName": "VIP",
+      "groupUsers": [],
+      "isAllowed": true,
+      "isNotice": false
+    },
+    {
+      "groupName": "enemies",
+      "groupUsers": [],
+      "isAllowed": false,
+      "isNotice": false
+    }
+  ],
+  "welcomeToastConfig": {
     "title": {
       "text": "Welcome",
       "color": "green"
     },
     "msg": {
-      "text": "Hello %groupName% %playerName%",
+      "text": "Hello User %playerName%",
+      "color": "green"
+    },
+    "prefix": "Taohuayuan",
+    "brackets": "[]",
+    "bracketColor": ""
+  },
+  "noticeToastConfig": {
+    "title": {
+      "text": "Welcome",
+      "color": "green"
+    },
+    "msg": {
+      "text": "Hello User %playerName%",
       "color": "green"
     },
     "prefix": "Taohuayuan",
@@ -33,35 +68,5 @@
     "prefix": "Taohuayuan",
     "brackets": "[]",
     "bracketColor": ""
-  },
-  "usersGroups": [
-    {
-      "groupName": "user",
-      "groupUsers": [],
-      "isAllowed": true,
-      "isNotice": true
-    },
-    {
-      "groupName": "VIP",
-      "groupUsers": [],
-      "isAllowed": true,
-      "isNotice": false
-    },
-    {
-      "groupName": "enemy",
-      "groupUsers": [],
-      "isAllowed": false,
-      "isNotice": false,
-      "toastConfig": {
-        "title": {
-          "text": "Warn",
-          "color": "red"
-        },
-        "msg": {
-          "text": "Warn %playerName%",
-          "color": "red"
-        }
-      }
-    }
-  ]
+  }
 }

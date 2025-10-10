@@ -18,12 +18,14 @@ export class CCLog {
   private interval: number;
   private startTime: number;
   private currentTimePeriod: string;
+  private inTerm: boolean;
 
-  constructor(filename?: string, interval: number = DAY) {
+  constructor(filename?: string, inTerm = true, interval: number = DAY) {
     term.clear();
     term.setCursorPos(1, 1);
 
     this.interval = interval;
+    this.inTerm = inTerm;
     this.startTime = os.time(os.date("*t"));
     this.currentTimePeriod = this.getTimePeriodString(this.startTime);
 
@@ -117,20 +119,22 @@ export class CCLog {
     // Check if we need to rotate the log file
     this.checkAndRotateLogFile();
 
-    let originalColor: Color = 0;
-    if (color != undefined) {
-      originalColor = term.getTextColor();
-      term.setTextColor(color);
+    if (this.inTerm) {
+      let originalColor: Color = 0;
+      if (color != undefined) {
+        originalColor = term.getTextColor();
+        term.setTextColor(color);
+      }
+      print(msg);
+
+      if (color != undefined) {
+        term.setTextColor(originalColor);
+      }
     }
 
     // Log
-    print(msg);
     if (this.fp != undefined) {
       this.fp.write(msg + "\r\n");
-    }
-
-    if (color != undefined) {
-      term.setTextColor(originalColor);
     }
   }
 

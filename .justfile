@@ -1,6 +1,6 @@
 set windows-shell := ["powershell.exe", "-NoLogo", "-Command"]
 
-build: build-autocraft build-accesscontrol build-test sync
+build: build-autocraft build-accesscontrol build-test build-example sync
 
 build-autocraft:
     pnpm tstl -p ./tsconfig.autocraft.json
@@ -11,6 +11,9 @@ build-accesscontrol:
 
 build-test:
     pnpm tstl -p ./tsconfig.test.json
+
+build-example:
+    pnpm tstl -p ./tsconfig.tuiExample.json
 
 sync:
     cp -r "./build/*" "C:\\Users\\sikongjueluo\\AppData\\Roaming\\CraftOS-PC\\computer\\0\\user\\"

@@ -261,10 +261,10 @@ class SetCommand implements CLICommand {
 
     switch (option) {
       case "warnInterval":
-        context.config.warnInterval = value;
+        context.config.watchInterval = value;
         return {
           success: true,
-          message: `Set warn interval to ${context.config.warnInterval}`,
+          message: `Set warn interval to ${context.config.watchInterval}`,
           shouldSaveConfig: true,
         };
 
@@ -549,20 +549,6 @@ class ShowConfigCommand implements CLICommand {
           groupsMessage += `  Users: [${(group.groupUsers ?? []).join(", ")}]\n`;
           groupsMessage += `  Allowed: ${group.isAllowed}\n`;
           groupsMessage += `  Notice: ${group.isNotice}\n`;
-          if (group.toastConfig !== undefined) {
-            groupsMessage += `  Custom Toast Config:\n`;
-            groupsMessage += `    Title: ${group.toastConfig.title.text}\n`;
-            groupsMessage += `    Message: ${group.toastConfig.msg.text}\n`;
-            if (group.toastConfig.prefix !== undefined) {
-              groupsMessage += `    Prefix: ${group.toastConfig.prefix}\n`;
-            }
-            if (group.toastConfig.brackets !== undefined) {
-              groupsMessage += `    Brackets: ${group.toastConfig.brackets}\n`;
-            }
-            if (group.toastConfig.bracketColor !== undefined) {
-              groupsMessage += `    Bracket Color: ${group.toastConfig.bracketColor}\n`;
-            }
-          }
           groupsMessage += "\n";
         }
 
@@ -574,11 +560,11 @@ class ShowConfigCommand implements CLICommand {
 
       case "toast": {
         let toastMessage = "Default Toast Config:\n";
-        toastMessage += `  Title: ${context.config.defaultToastConfig.title.text}\n`;
-        toastMessage += `  Message: ${context.config.defaultToastConfig.msg.text}\n`;
-        toastMessage += `  Prefix: ${context.config.defaultToastConfig.prefix ?? "none"}\n`;
-        toastMessage += `  Brackets: ${context.config.defaultToastConfig.brackets ?? "none"}\n`;
-        toastMessage += `  Bracket Color: ${context.config.defaultToastConfig.bracketColor ?? "none"}\n\n`;
+        toastMessage += `  Title: ${context.config.welcomeToastConfig.title.text}\n`;
+        toastMessage += `  Message: ${context.config.welcomeToastConfig.msg.text}\n`;
+        toastMessage += `  Prefix: ${context.config.welcomeToastConfig.prefix ?? "none"}\n`;
+        toastMessage += `  Brackets: ${context.config.welcomeToastConfig.brackets ?? "none"}\n`;
+        toastMessage += `  Bracket Color: ${context.config.welcomeToastConfig.bracketColor ?? "none"}\n\n`;
 
         toastMessage += "Warn Toast Config:\n";
         toastMessage += `  Title: ${context.config.warnToastConfig.title.text}\n`;
@@ -596,7 +582,7 @@ class ShowConfigCommand implements CLICommand {
       case "all": {
         let allMessage = `Detect Range: ${context.config.detectRange}\n`;
         allMessage += `Detect Interval: ${context.config.detectInterval}\n`;
-        allMessage += `Warn Interval: ${context.config.warnInterval}\n\n`;
+        allMessage += `Warn Interval: ${context.config.watchInterval}\n\n`;
         allMessage +=
           "Use 'showconfig groups' or 'showconfig toast' for detailed view";
 

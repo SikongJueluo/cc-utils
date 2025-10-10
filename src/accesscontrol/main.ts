@@ -16,12 +16,12 @@ const config = loadConfig(configFilepath);
 log.info("Load config successfully!");
 if (DEBUG) log.debug(textutils.serialise(config, { allow_repetitions: true }));
 const groupNames = config.usersGroups.map((value) => value.groupName);
-let warnTargetPlayers: string[];
+let noticeTargetPlayers: string[];
 const playerDetector = peripheralManager.findByNameRequired("playerDetector");
 const chatBox = peripheralManager.findByNameRequired("chatBox");
 
 let inRangePlayers: string[] = [];
-let notAllowedPlayers: string[] = [];
+let watchPlayersInfo: { name: string; hasNoticeTimes: number }[] = [];
 
 function safeParseTextComponent(
   component: MinecraftTextComponent,
@@ -38,43 +38,50 @@ function safeParseTextComponent(
   return textutils.serialiseJSON(component);
 }
 
-function sendToast(
-  toastConfig: ToastConfig,
-  player: string,
-  groupConfig?: UserGroupConfig,
-) {
+function sendToast(toastConfig: ToastConfig, targetPlayer: string) {
   return chatBox.sendFormattedToastToPlayer(
-    safeParseTextComponent(
-      toastConfig.msg ?? config.defaultToastConfig.msg,
-      player,
-      groupConfig?.groupName,
+    textutils.serialiseJSON(toastConfig.msg ?? config.welcomeToastConfig.msg),
+    textutils.serialiseJSON(
+      toastConfig.title ?? config.welcomeToastConfig.title,
     ),
-    safeParseTextComponent(
-      toastConfig.title ?? config.defaultToastConfig.title,
-      player,
-      groupConfig?.groupName,
-    ),
-    player,
-    toastConfig.prefix ?? config.defaultToastConfig.prefix,
-    toastConfig.brackets ?? config.defaultToastConfig.brackets,
-    toastConfig.bracketColor ?? config.defaultToastConfig.bracketColor,
+    targetPlayer,
+    toastConfig.prefix ?? config.welcomeToastConfig.prefix,
+    toastConfig.brackets ?? config.welcomeToastConfig.brackets,
+    toastConfig.bracketColor ?? config.welcomeToastConfig.bracketColor,
     undefined,
     true,
   );
 }
 
-function sendWarnAndNotice(player: string) {
-  const playerPos = playerDetector.getPlayerPos(player);
+function sendNotice(player: string, playerInfo?: PlayerInfo) {
   const onlinePlayers = playerDetector.getOnlinePlayers();
-  warnTargetPlayers = config.adminGroupConfig.groupUsers.concat(
+  noticeTargetPlayers = config.adminGroupConfig.groupUsers.concat(
     config.usersGroups
       .filter((value) => value.isNotice)
       .map((value) => value.groupUsers ?? [])
       .flat(),
   );
 
-  const warnMsg = `Not Allowed Player ${player} Break in Home at Position ${playerPos?.x}, ${playerPos?.y}, ${playerPos?.z}`;
+  const toastConfig: ToastConfig = {
+    title: {
+      text: "Notice",
+      color: "red",
+    },
+    msg: {
+      text: `Unfamiliar Player ${player} appeared at\n Position ${playerInfo?.x}, ${playerInfo?.y}, ${playerInfo?.z}`,
+      color: "red",
+    },
+  };
+  for (const targetPlayer of noticeTargetPlayers) {
+    if (!onlinePlayers.includes(targetPlayer)) continue;
+    sendToast(toastConfig, targetPlayer);
+  }
+}
+
+function sendWarn(player: string) {
+  const warnMsg = `Not Allowed Player ${player} Break in Home `;
   log.warn(warnMsg);
+
   sendToast(config.warnToastConfig, player);
   chatBox.sendFormattedMessageToPlayer(
     safeParseTextComponent(config.warnToastConfig.msg, player),
@@ -85,37 +92,36 @@ function sendWarnAndNotice(player: string) {
     undefined,
     true,
   );
-
-  for (const targetPlayer of warnTargetPlayers) {
-    if (!onlinePlayers.includes(targetPlayer)) continue;
-    chatBox.sendFormattedMessageToPlayer(
-      textutils.serialise({
-        text: warnMsg,
-        color: "red",
-      } as MinecraftTextComponent),
-      targetPlayer,
-      "AccessControl",
-      "[]",
-      undefined,
-      undefined,
-      true,
-    );
-  }
 }
 
-function warnLoop() {
+function watchLoop() {
   while (true) {
-    for (const player of notAllowedPlayers) {
-      if (inRangePlayers.includes(player)) {
-        // sendWarnAndNotice(player);
+    for (const player of watchPlayersInfo) {
+      if (inRangePlayers.includes(player.name)) {
+        const playerInfo = playerDetector.getPlayerPos(player.name);
+
+        // Notice
+        if (player.hasNoticeTimes < config.noticeTimes) {
+          sendNotice(player.name, playerInfo);
+          player.hasNoticeTimes += 1;
+        }
+
+        // Warn
+        if (config.isWarn) sendWarn(player.name);
+
+        // Record
+        log.warn(
+          `${player.name} appear at ${playerInfo?.x}, ${playerInfo?.y}, ${playerInfo?.z}`,
+        );
       } else {
-        notAllowedPlayers = notAllowedPlayers.filter(
-          (value) => value != player,
+        // Get rid of player from list
+        watchPlayersInfo = watchPlayersInfo.filter(
+          (value) => value.name != player.name,
         );
       }
     }
 
-    os.sleep(config.warnInterval);
+    os.sleep(config.watchInterval);
   }
 }
 
@@ -131,39 +137,36 @@ function mainLoop() {
       if (inRangePlayers.includes(player)) continue;
 
       if (config.adminGroupConfig.groupUsers.includes(player)) {
-        log.info(`Admin ${player} enter`);
-        sendToast(
-          config.adminGroupConfig.toastConfig ?? config.defaultToastConfig,
-          player,
-          config.adminGroupConfig,
-        );
+        log.info(`Admin ${player} appear`);
         continue;
       }
 
-      let inUserGroup = false;
+      // New player appear
+      const playerInfo = playerDetector.getPlayerPos(player);
+      let groupConfig: UserGroupConfig = {
+        groupName: "Unfamiliar",
+        groupUsers: [],
+        isAllowed: false,
+        isNotice: false,
+      };
       for (const userGroupConfig of config.usersGroups) {
         if (userGroupConfig.groupUsers == undefined) continue;
         if (!userGroupConfig.groupUsers.includes(player)) continue;
 
-        if (!userGroupConfig.isAllowed) {
-          sendWarnAndNotice(player);
-          notAllowedPlayers.push(player);
-          continue;
-        }
-
-        log.info(`${userGroupConfig.groupName} ${player} enter`);
-        sendToast(
-          userGroupConfig.toastConfig ?? config.defaultToastConfig,
-          player,
-          userGroupConfig,
+        groupConfig = userGroupConfig;
+        log.info(
+          `${groupConfig.groupName} ${player} appear at ${playerInfo?.x}, ${playerInfo?.y}, ${playerInfo?.z}`,
         );
 
-        inUserGroup = true;
+        break;
       }
-      if (inUserGroup) continue;
+      if (groupConfig.isAllowed) continue;
 
-      sendWarnAndNotice(player);
-      notAllowedPlayers.push(player);
+      log.warn(
+        `${groupConfig.groupName} ${player} appear at ${playerInfo?.x}, ${playerInfo?.y}, ${playerInfo?.z}`,
+      );
+      if (config.isWarn) sendWarn(player);
+      watchPlayersInfo.push({ name: player, hasNoticeTimes: 0 });
     }
 
     inRangePlayers = players;
@@ -192,7 +195,7 @@ function main(args: string[]) {
           void cli.startConfigLoop();
         },
         () => {
-          warnLoop();
+          watchLoop();
         },
       );
       return;
