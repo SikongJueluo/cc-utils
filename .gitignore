@@ -3,6 +3,7 @@ node_modules
 event/
 build/
 reference/
+src/*/*.md
 
 QWEN.md
 

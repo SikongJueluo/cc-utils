@@ -3,6 +3,8 @@
 {
   packages = with pkgs; [
     pnpm
+    craftos-pc
+    qwen-code
   ];
 
   # https://devenv.sh/languages/
