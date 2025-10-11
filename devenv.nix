@@ -5,6 +5,7 @@
     pnpm
     craftos-pc
     qwen-code
+    gemini-cli
   ];
 
   # https://devenv.sh/languages/

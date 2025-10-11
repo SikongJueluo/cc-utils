@@ -7,7 +7,7 @@ import {
   TextLabel,
   InputField,
   OptionSelector,
-  TabWidget,
+  TabBar,
   Button,
 } from "../lib/ccTUI";
 
@@ -46,11 +46,27 @@ const optionSelector = new OptionSelector(
 const statusLabel = new TextLabel("LableStatus", 5, 11, "Status: Ready");
 
 // Create a button
-const button = new Button("ButtonSubmit", 5, 13, "Submit", colors.white, colors.blue);
+const button = new Button(
+  "ButtonSubmit",
+  5,
+  13,
+  "Submit",
+  colors.white,
+  colors.blue,
+);
 
 // Create tab widget with sample tabs - using longer tab names for testing
-const tabNames = ["Home", "Settings", "User Profile", "Messages", "About Us", "Documentation", "Advanced Settings", "Account Management"];
-const tabWidget = new TabWidget("TabWidget", 5, 3, 50, tabNames, 0);
+const tabNames = [
+  "Home",
+  "Settings",
+  "User Profile",
+  "Messages",
+  "About Us",
+  "Documentation",
+  "Advanced Settings",
+  "Account Management",
+];
+const tabBar = new TabBar("TabWidget", 5, 3, 50, tabNames, 0);
 
 // Add components to the application
 app.addComponent(title);
@@ -60,10 +76,10 @@ app.addComponent(optionLabel);
 app.addComponent(optionSelector);
 app.addComponent(statusLabel);
 app.addComponent(button);
-app.addComponent(tabWidget);
+app.addComponent(tabBar);
 
 // Set focus to the input field initially
-app.getWindow().setFocusFor(tabWidget);
+app.getWindow().setFocusFor(tabBar);
 
 // Connect events
 optionSelector.onSelectionChanged.connect((data) => {
@@ -80,7 +96,7 @@ inputField.onTextChanged.connect((value) => {
   }
 });
 
-tabWidget.onTabChanged.connect((data) => {
+tabBar.onTabChanged.connect((data) => {
   statusLabel.setText(
     `Status: Tab changed to ${data?.name} (index: ${data?.index})`,
   );
@@ -89,7 +105,9 @@ tabWidget.onTabChanged.connect((data) => {
 button.onClick.connect(() => {
   const inputValue = inputField.getValue();
   const selectedOption = optionSelector.getSelectedValue();
-  statusLabel.setText(`Status: Submitted - Input: "${inputValue}", Option: "${selectedOption}"`);
+  statusLabel.setText(
+    `Status: Submitted - Input: "${inputValue}", Option: "${selectedOption}"`,
+  );
 });
 
 // Run the application

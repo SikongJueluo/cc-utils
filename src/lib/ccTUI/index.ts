@@ -4,13 +4,13 @@
  * Provides input/output, option selection and keyboard event handling
  */
 
-import { Signal } from "./signal";
+import { Signal } from "./Signal";
 import { UIObject } from "./UIObject";
 import { UIComponent } from "./UIComponent";
 import { TextLabel } from "./TextLabel";
 import { InputField } from "./InputField";
 import { OptionSelector } from "./OptionSelector";
-import { TabWidget } from "./TabWidget";
+import { TabBar } from "./TabBar";
 import { UIWindow } from "./UIWindow";
 import { TUIApplication } from "./TUIApplication";
 import { Button } from "./Button";
@@ -23,7 +23,7 @@ export {
   TextLabel,
   InputField,
   OptionSelector,
-  TabWidget,
+  TabBar,
   UIWindow,
   TUIApplication,
   Button,

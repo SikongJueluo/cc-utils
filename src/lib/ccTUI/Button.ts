@@ -1,5 +1,5 @@
 import { UIComponent } from "./UIComponent";
-import { Signal } from "./signal";
+import { Signal } from "./Signal";
 import { KeyEvent } from "../event";
 
 /**

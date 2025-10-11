@@ -1,12 +1,12 @@
 import { UIComponent } from "./UIComponent";
-import { Signal } from "./signal";
+import { Signal } from "./Signal";
 import { KeyEvent } from "../event";
 
 /**
  * Tab component that allows switching between different pages
  * Similar to QT's TabWidget, currently implementing horizontal tabs only
  */
-export class TabWidget extends UIComponent {
+export class TabBar extends UIComponent {
   // Tab data structure - simple array of tab names
   private tabs: string[];
   private currentIndex: number;

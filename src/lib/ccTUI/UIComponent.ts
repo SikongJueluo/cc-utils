@@ -1,4 +1,4 @@
-import { Signal } from "./signal";
+import { Signal } from "./Signal";
 import { KeyEvent, CharEvent, TimerEvent } from "../event";
 import { UIObject } from "./UIObject";
 /**
