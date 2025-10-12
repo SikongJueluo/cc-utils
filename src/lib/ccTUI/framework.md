@@ -143,7 +143,7 @@ render(App);
 
 - **`Show(props: ShowProps, child: UIObject): UIObject`**
   - 用于条件渲染。当 `when` 条件为 `true` 时渲染 `child`，否则渲染 `fallback`。
-  - `ShowProps`: 
+  - `ShowProps`:
     - `when: () => boolean`: 一个返回布尔值的访问器函数 (accessor)。
     - `fallback?: UIObject`: 当 `when` 返回 `false` 时要渲染的组件。
   - `child`: 当 `when` 返回 `true` 时要渲染的组件。
@@ -318,22 +318,22 @@ Effect 用于将响应式系统与外部世界（如日志、计时器、手动A
 ### `src/lib/ccTUI/`
 
 - **`index.ts`**: 框架的公共 API 入口。所有可供外部使用的组件（如 `div`, `button`）和函数（如 `createSignal`）都应由此文件导出。
-- **`Signal.ts`**: 包含框架的响应式系统核心，即 `createSignal`, `createEffect`, `batch` 等的实现。
-- **`UIObject.ts`**: 所有 UI 元素的基类或基础类型。定义了如位置、尺寸、父子关系、绘制（draw）和更新（update）等通用接口。
-- **`TUIApplication.ts`**: 应用程序的根实例。负责管理主窗口、事件循环（event loop）、焦点管理和全局重绘。
-- **`UIWindow.ts`**: 代表一个独立的窗口（通常是整个终端屏幕），作为所有 UI 元素的根容器和绘制表面。
-- **`TextLabel.ts`, `Button.ts`, `InputField.ts`**: 具体的基础组件实现。
+- **`reactivity.ts`**: 包含框架的响应式系统核心，即 `createSignal`, `createEffect`, `batch`, `createMemo` 等的实现。
+- **`store.ts`**: 包含 `createStore` 的实现，用于管理对象和数组等复杂状态。
+- **`UIObject.ts`**: 定义了所有 UI 元素的基类或基础类型 `UIObject`，包括位置、尺寸、父子关系、绘制（draw）和更新（update）等通用接口。
+- **`application.ts`**: 包含 `Application` 类，负责管理主窗口、事件循环（event loop）、焦点管理和全局重绘。`render` 函数也在这里。
+- **`renderer.ts`**: 负责将 `UIObject` 树解析并绘制到 ComputerCraft 终端屏幕上。
+- **`layout.ts`**: Flexbox 布局引擎的实现。解析 `class` 属性并计算组件的布局。
+- **`components.ts`**: 包含所有基础 UI 组件的实现，如 `div`, `label`, `button`, `input`, `form` 等。
+- **`controlFlow.ts`**: 包含控制流组件，如 `For` 和 `Show`，用于处理列表渲染和条件渲染。
 - **`framework.md`**: (本文档) 框架的设计指南、API 参考和代码规范。
 
 ---
 
 ## 7. 框架示例
 
-- **`src/tuiExample/main.ts`**
-  - 此文件是 `ccTUI` 框架的功能示例和测试场（使用旧的 API）。
-- **`src/tuiExample/main.new.ts`**
-  - 新的响应式框架示例，展示 SolidJS 风格的 API。
-  - 在对框架进行任何修改或添加新功能后，都应在此文件中创建相应的示例来验证其正确性并进行展示。
+- **`src/tuiExample/main.ts`**: 此文件将作为新的响应式框架示例，用于展示和验证所有 SolidJS 风格的 API。
+  - 在对框架进行任何修改或添加新功能后，都应在此文件中创建或更新相应的示例来验证其正确性。
   - 使用 `just build-example sync` 命令可以编译此示例并将其同步到游戏内的 `computer` 目录中，以便在 Minecraft 环境中实际运行和查看效果。
 
 ---
@@ -406,7 +406,7 @@ import { createSignal, div, label, button, render } from "../lib/ccTUI";
 
 const App = () => {
   const [count, setCount] = createSignal(0);
-  
+
   return div({ class: "flex flex-col" },
     label({}, () => `Count: ${count()}`),
     button({ onClick: () => setCount(count() + 1) }, "Increment")
@@ -435,4 +435,3 @@ pnpm tstl -p ./tsconfig.tuiExample.json
 # 运行 ESLint 检查
 pnpm dlx eslint src/lib/ccTUI/reactivity.ts
 ```
-

@@ -17,10 +17,20 @@ function measureNode(node: UIObject): { width: number; height: number } {
   const getTextContent = (): string => {
     if (node.textContent !== undefined) {
       if (typeof node.textContent === "function") {
-        return node.textContent();
+        return (node.textContent)();
       }
       return node.textContent;
     }
+    
+    // For nodes with text children, get their content
+    if (node.children.length > 0 && node.children[0].textContent !== undefined) {
+      const child = node.children[0];
+      if (typeof child.textContent === "function") {
+        return (child.textContent)();
+      }
+      return child.textContent!;
+    }
+    
     return "";
   };
 
@@ -63,6 +73,8 @@ function measureNode(node: UIObject): { width: number; height: number } {
       }
       
       const direction = node.layoutProps.flexDirection ?? "row";
+      const isFlex = node.type === "div" || node.type === "form";
+      const gap = isFlex ? 1 : 0;
       
       if (direction === "row") {
         // In row direction, width is sum of children, height is max
@@ -71,12 +83,18 @@ function measureNode(node: UIObject): { width: number; height: number } {
           totalWidth += childSize.width;
           totalHeight = math.max(totalHeight, childSize.height);
         }
+        if (node.children.length > 1) {
+          totalWidth += gap * (node.children.length - 1);
+        }
       } else {
         // In column direction, height is sum of children, width is max
         for (const child of node.children) {
           const childSize = measureNode(child);
           totalWidth = math.max(totalWidth, childSize.width);
           totalHeight += childSize.height;
+        }
+        if (node.children.length > 1) {
+          totalHeight += gap * (node.children.length - 1);
         }
       }
       
@@ -120,6 +138,9 @@ export function calculateLayout(
   const justify = node.layoutProps.justifyContent ?? "start";
   const align = node.layoutProps.alignItems ?? "start";
 
+  const isFlex = node.type === "div" || node.type === "form";
+  const gap = isFlex ? 1 : 0;
+
   // Measure all children
   const childMeasurements = node.children.map((child: UIObject) => measureNode(child));
   
@@ -137,6 +158,11 @@ export function calculateLayout(
       totalMainAxisSize += measure.height;
       maxCrossAxisSize = math.max(maxCrossAxisSize, measure.width);
     }
+  }
+
+  // Add gaps to total size
+  if (node.children.length > 1) {
+    totalMainAxisSize += gap * (node.children.length - 1);
   }
 
   // Calculate starting position based on justify-content
@@ -187,6 +213,9 @@ export function calculateLayout(
       }
       
       mainAxisPos += measure.width + spacing;
+      if (i < node.children.length - 1) {
+        mainAxisPos += gap;
+      }
     } else {
       // Main axis is vertical
       childY = startY + math.floor(mainAxisPos);
@@ -201,6 +230,9 @@ export function calculateLayout(
       }
       
       mainAxisPos += measure.height + spacing;
+      if (i < node.children.length - 1) {
+        mainAxisPos += gap;
+      }
     }
     
     // Recursively calculate layout for child

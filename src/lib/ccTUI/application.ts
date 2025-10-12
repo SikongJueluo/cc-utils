@@ -5,7 +5,7 @@
 import { UIObject } from "./UIObject";
 import { calculateLayout } from "./layout";
 import { render as renderTree, clearScreen } from "./renderer";
-import { createEffect } from "./reactivity";
+import { CCLog } from "../ccLog";
 
 /**
  * Main application class
@@ -18,11 +18,14 @@ export class Application {
   private focusedNode?: UIObject;
   private termWidth: number;
   private termHeight: number;
+  private logger: CCLog;
 
   constructor() {
     const [width, height] = term.getSize();
     this.termWidth = width;
     this.termHeight = height;
+    this.logger = new CCLog("tui_debug.log", false);
+    this.logger.debug("Application constructed.");
   }
 
   /**
@@ -63,6 +66,7 @@ export class Application {
     clearScreen();
 
     // Initial render
+    this.logger.debug("Initial renderFrame call.");
     this.renderFrame();
 
     // Main event loop
@@ -76,12 +80,14 @@ export class Application {
    * Stop the application
    */
   stop(): void {
+    this.logger.debug("Application stopping.");
     this.running = false;
 
     if (this.root !== undefined) {
       this.root.unmount();
     }
 
+    this.logger.close();
     clearScreen();
   }
 
@@ -89,13 +95,14 @@ export class Application {
    * Render loop - continuously renders when needed
    */
   private renderLoop(): void {
-    // Set up reactive rendering - re-render whenever any signal changes
-    createEffect(() => {
-      this.renderFrame();
-    });
-
     while (this.running) {
-      // Keep the loop alive
+      if (this.needsRender) {
+        this.logger.debug(
+          "renderLoop: needsRender is true, calling renderFrame.",
+        );
+        this.needsRender = false;
+        this.renderFrame();
+      }
       os.sleep(0.05);
     }
   }
@@ -105,7 +112,7 @@ export class Application {
    */
   private renderFrame(): void {
     if (this.root === undefined) return;
-
+    this.logger.debug("renderFrame: Calculating layout.");
     // Calculate layout
     calculateLayout(this.root, this.termWidth, this.termHeight, 1, 1);
 
@@ -113,7 +120,9 @@ export class Application {
     clearScreen();
 
     // Render the tree
+    this.logger.debug("renderFrame: Rendering tree.");
     renderTree(this.root, this.focusedNode);
+    this.logger.debug("renderFrame: Finished rendering tree.");
   }
 
   /**
@@ -121,15 +130,20 @@ export class Application {
    */
   private eventLoop(): void {
     while (this.running) {
-      const [eventType, ...eventData] = os.pullEvent() as LuaMultiReturn<
-        unknown[]
-      >;
+      const [eventType, ...eventData] = os.pullEvent();
 
       if (eventType === "key") {
         this.handleKeyEvent(eventData[0] as number);
       } else if (eventType === "char") {
         this.handleCharEvent(eventData[0] as string);
       } else if (eventType === "mouse_click") {
+        this.logger.debug(
+          string.format(
+            "eventLoop: Mouse click detected at (%d, %d)",
+            eventData[1],
+            eventData[2],
+          ),
+        );
         this.handleMouseClick(
           eventData[0] as number,
           eventData[1] as number,
@@ -204,10 +218,14 @@ export class Application {
   private handleMouseClick(button: number, x: number, y: number): void {
     if (button !== 1 || this.root === undefined) return;
 
+    this.logger.debug("handleMouseClick: Finding node.");
     // Find which element was clicked
     const clicked = this.findNodeAt(this.root, x, y);
 
     if (clicked !== undefined) {
+      this.logger.debug(
+        string.format("handleMouseClick: Found node of type %s.", clicked.type),
+      );
       // Set focus
       this.focusedNode = clicked;
 
@@ -215,7 +233,12 @@ export class Application {
       if (clicked.type === "button") {
         const onClick = clicked.handlers.onClick;
         if (onClick) {
+          this.logger.debug(
+            "handleMouseClick: onClick handler found, executing.",
+          );
           (onClick as () => void)();
+          this.logger.debug("handleMouseClick: onClick handler finished.");
+          this.needsRender = true;
         }
       } else if (clicked.type === "input") {
         const type = clicked.props.type as string | undefined;
@@ -229,11 +252,12 @@ export class Application {
           ) {
             const currentValue = (checkedProp as () => boolean)();
             (onChangeProp as (v: boolean) => void)(!currentValue);
+            this.needsRender = true;
           }
         }
       }
-
-      this.needsRender = true;
+    } else {
+      this.logger.debug("handleMouseClick: No node found at click position.");
     }
   }
 
@@ -256,9 +280,19 @@ export class Application {
     // Check this node
     if (node.layout !== undefined) {
       const { x: nx, y: ny, width, height } = node.layout;
-      if (x >= nx && x < nx + width && y >= ny && y < ny + height) {
+      const hit = x >= nx && x < nx + width && y >= ny && y < ny + height;
+      if (hit) {
+        this.logger.debug(
+          string.format(
+            "findNodeAt: Hit test TRUE for %s at (%d, %d)",
+            node.type,
+            nx,
+            ny,
+          ),
+        );
         // Only return interactive elements
         if (node.type === "button" || node.type === "input") {
+          this.logger.debug("findNodeAt: Node is interactive, returning.");
           return node;
         }
       }
