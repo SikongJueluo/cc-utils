@@ -5,5 +5,5 @@
     "luaBundle": "build/tuiExample.lua",
     "luaBundleEntry": "src/tuiExample/main.ts"
   },
-  "include": ["src/tuiExample/*.ts"]
+  "include": ["src/tuiExample/*.ts", "src/lib/ccTUI/*.ts"]
 }

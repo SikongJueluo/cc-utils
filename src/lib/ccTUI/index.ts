@@ -1,30 +1,55 @@
 /**
  * ComputerCraft TUI (Terminal User Interface) Framework
- * Based on Qt signal/slot principles for event handling
- * Provides input/output, option selection and keyboard event handling
+ * A declarative, reactive UI framework inspired by SolidJS
+ * Provides components, reactivity, and flexbox layout for ComputerCraft
  */
 
-import { Signal } from "./Signal";
-import { UIObject } from "./UIObject";
-import { UIComponent } from "./UIComponent";
-import { TextLabel } from "./TextLabel";
-import { InputField } from "./InputField";
-import { OptionSelector } from "./OptionSelector";
-import { TabBar } from "./TabBar";
-import { UIWindow } from "./UIWindow";
-import { TUIApplication } from "./TUIApplication";
-import { Button } from "./Button";
-
-// Export the main classes for use in other modules
+// Reactivity system
 export {
-  Signal,
+  createSignal,
+  createEffect,
+  createMemo,
+  batch,
+  type Accessor,
+  type Setter,
+  type Signal,
+} from "./reactivity";
+
+// Store for complex state
+export {
+  createStore,
+  removeIndex,
+  insertAt,
+  type SetStoreFunction,
+} from "./store";
+
+// Components
+export {
+  div,
+  label,
+  h1,
+  h2,
+  h3,
+  button,
+  input,
+  form,
+  type DivProps,
+  type LabelProps,
+  type ButtonProps,
+  type InputProps,
+  type FormProps,
+} from "./components";
+
+// Control flow
+export { For, Show, type ForProps, type ShowProps } from "./controlFlow";
+
+// Application
+export { Application, render } from "./application";
+
+// Core types
+export {
   UIObject,
-  UIComponent,
-  TextLabel,
-  InputField,
-  OptionSelector,
-  TabBar,
-  UIWindow,
-  TUIApplication,
-  Button,
-};
+  type LayoutProps,
+  type ComputedLayout,
+  type BaseProps,
+} from "./UIObject";
