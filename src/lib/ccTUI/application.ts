@@ -19,6 +19,9 @@ export class Application {
   private termWidth: number;
   private termHeight: number;
   private logger: CCLog;
+  private cursorBlinkState = false;
+  private lastBlinkTime = 0;
+  private readonly BLINK_INTERVAL = 0.5; // seconds
 
   constructor() {
     const [width, height] = term.getSize();
@@ -73,6 +76,7 @@ export class Application {
     parallel.waitForAll(
       () => this.renderLoop(),
       () => this.eventLoop(),
+      () => this.timerLoop(),
     );
   }
 
@@ -121,8 +125,31 @@ export class Application {
 
     // Render the tree
     this.logger.debug("renderFrame: Rendering tree.");
-    renderTree(this.root, this.focusedNode);
+    renderTree(this.root, this.focusedNode, this.cursorBlinkState);
     this.logger.debug("renderFrame: Finished rendering tree.");
+  }
+
+  /**
+   * Timer loop - handles cursor blinking
+   */
+  private timerLoop(): void {
+    while (this.running) {
+      const currentTime = os.clock();
+      if (currentTime - this.lastBlinkTime >= this.BLINK_INTERVAL) {
+        this.lastBlinkTime = currentTime;
+        this.cursorBlinkState = !this.cursorBlinkState;
+        
+        // Only trigger render if we have a focused text input
+        if (
+          this.focusedNode !== undefined &&
+          this.focusedNode.type === "input" &&
+          this.focusedNode.props.type !== "checkbox"
+        ) {
+          this.needsRender = true;
+        }
+      }
+      os.sleep(0.05);
+    }
   }
 
   /**
@@ -186,6 +213,61 @@ export class Application {
           }
         }
       }
+    } else if (this.focusedNode !== undefined && this.focusedNode.type === "input") {
+      // Handle text input key events
+      const type = this.focusedNode.props.type as string | undefined;
+      if (type !== "checkbox") {
+        this.handleTextInputKey(key);
+      }
+    }
+  }
+
+  /**
+   * Handle keyboard events for text input
+   */
+  private handleTextInputKey(key: number): void {
+    if (this.focusedNode === undefined) return;
+
+    const valueProp = this.focusedNode.props.value;
+    const onInputProp = this.focusedNode.props.onInput;
+
+    if (
+      typeof valueProp !== "function" ||
+      typeof onInputProp !== "function"
+    ) {
+      return;
+    }
+
+    const currentValue = (valueProp as () => string)();
+    const cursorPos = this.focusedNode.cursorPos ?? 0;
+
+    if (key === keys.left) {
+      // Move cursor left
+      this.focusedNode.cursorPos = math.max(0, cursorPos - 1);
+      this.needsRender = true;
+    } else if (key === keys.right) {
+      // Move cursor right
+      this.focusedNode.cursorPos = math.min(currentValue.length, cursorPos + 1);
+      this.needsRender = true;
+    } else if (key === keys.backspace) {
+      // Delete character before cursor
+      if (cursorPos > 0) {
+        const newValue =
+          currentValue.substring(0, cursorPos - 1) +
+          currentValue.substring(cursorPos);
+        (onInputProp as (v: string) => void)(newValue);
+        this.focusedNode.cursorPos = cursorPos - 1;
+        this.needsRender = true;
+      }
+    } else if (key === keys.delete) {
+      // Delete character after cursor
+      if (cursorPos < currentValue.length) {
+        const newValue =
+          currentValue.substring(0, cursorPos) +
+          currentValue.substring(cursorPos + 1);
+        (onInputProp as (v: string) => void)(newValue);
+        this.needsRender = true;
+      }
     }
   }
 
@@ -196,7 +278,7 @@ export class Application {
     if (this.focusedNode !== undefined && this.focusedNode.type === "input") {
       const type = this.focusedNode.props.type as string | undefined;
       if (type !== "checkbox") {
-        // Add character to text input
+        // Insert character at cursor position
         const onInputProp = this.focusedNode.props.onInput;
         const valueProp = this.focusedNode.props.value;
 
@@ -205,7 +287,13 @@ export class Application {
           typeof valueProp === "function"
         ) {
           const currentValue = (valueProp as () => string)();
-          (onInputProp as (v: string) => void)(currentValue + char);
+          const cursorPos = this.focusedNode.cursorPos ?? 0;
+          const newValue =
+            currentValue.substring(0, cursorPos) +
+            char +
+            currentValue.substring(cursorPos);
+          (onInputProp as (v: string) => void)(newValue);
+          this.focusedNode.cursorPos = cursorPos + 1;
           this.needsRender = true;
         }
       }
@@ -228,6 +316,15 @@ export class Application {
       );
       // Set focus
       this.focusedNode = clicked;
+
+      // Initialize cursor position for text inputs on focus
+      if (clicked.type === "input" && clicked.props.type !== "checkbox") {
+        const valueProp = clicked.props.value;
+        if (typeof valueProp === "function") {
+          const currentValue = (valueProp as () => string)();
+          clicked.cursorPos = currentValue.length;
+        }
+      }
 
       // Trigger click handler
       if (clicked.type === "button") {
@@ -256,6 +353,8 @@ export class Application {
           }
         }
       }
+
+      this.needsRender = true;
     } else {
       this.logger.debug("handleMouseClick: No node found at click position.");
     }

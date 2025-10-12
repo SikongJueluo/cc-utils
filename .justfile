@@ -19,3 +19,6 @@ build-example:
 
 sync:
     rsync --delete -r "./build/" "{{ sync-path }}"
+
+lint:
+    pnpm dlx eslint src/**/*.ts --fix

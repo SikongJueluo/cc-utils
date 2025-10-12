@@ -24,13 +24,13 @@ const Counter = () => {
   const [count, setCount] = createSignal(0);
 
   return div(
-    { class: "flex flex-col" },
+    { class: "flex flex-col bg-blue" },
     h3("Counter Example"),
-    label({}, () => `Count: ${count()}`),
+    label({ class: "text-yellow" }, () => `Count: ${count()}`),
     div(
       { class: "flex flex-row" },
-      button({ onClick: () => setCount(count() - 1) }, "-"),
-      button({ onClick: () => setCount(count() + 1) }, "+"),
+      button({ onClick: () => setCount(count() - 1), class: "text-red" }, "-"),
+      button({ onClick: () => setCount(count() + 1), class: "text-green" }, "+"),
     ),
   );
 };
@@ -67,7 +67,7 @@ const TodosApp = () => {
         onInput: setNewTitle,
         placeholder: "Enter new todo",
       }),
-      button({ onClick: addTodo }, "Add"),
+      button({ onClick: addTodo, class: "bg-green text-white" }, "Add"),
     ),
     For({ each: todos, class: "flex flex-col" }, (todo, index) =>
       div(
@@ -79,10 +79,15 @@ const TodosApp = () => {
             setTodos(index(), "completed", checked);
           },
         }),
-        label({ class: "ml-1" }, () => todo.title),
+        label(
+          { 
+            class: todo.completed ? "ml-1 text-gray" : "ml-1 text-white"
+          }, 
+          () => todo.title
+        ),
         button(
           {
-            class: "ml-1",
+            class: "ml-1 bg-red text-white",
             onClick: () => {
               setTodos((t) => removeIndex(t, index()));
             },

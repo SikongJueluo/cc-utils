@@ -15,35 +15,6 @@
 
 为了直观地展示目标 API，这里将 SolidJS 的 "Simple Todos" 示例与我们期望的 ccTUI 实现进行对比。
 
-**SolidJS (Web) 版本:**
-```typescript
-// ... imports
-const App = () => {
-  const [newTitle, setTitle] = createSignal("");
-  const [todos, setTodos] = createLocalStore<TodoItem[]>("todo list", []);
-  // ... logic
-  return (
-    <>
-      <h3>Simple Todos Example</h3>
-      <form onSubmit={addTodo}>
-        <input /* ...props */ />
-        <button>+</button>
-      </form>
-      <For each={todos}>
-        {(todo, i) => (
-          <div>
-            <input type="checkbox" /* ...props */ />
-            <input type="text" /* ...props */ />
-            <button /* ...props */>x</button>
-          </div>
-        )}
-      </For>
-    </>
-  );
-};
-render(App, document.getElementById("app")!);
-```
-
 **ccTUI (ComputerCraft) 目标版本:**
 ```typescript
 // ... imports
@@ -96,27 +67,31 @@ render(App);
 
 ## 1. 基础组件 API
 
-组件是返回 `UIObject` 的函数。第一个参数是 `props` 对象，后续参数是子组件。
+组件是返回 `UIObject` 的函数。所有组件的 `props` 对象都继承自一个基础接口，获得了通用能力。
+
+- **`MouseClickEvent`**: `{ button: number, x: number, y: number }`
+  - 描述一次鼠标点击事件的对象。
+
+- **`BaseProps`**:
+  - `{ class?: string, onMouseClick?: (event: MouseClickEvent) => void }`
+  - 所有组件 `props` 都包含这两个可选属性，用于样式和通用的点击事件处理。
 
 ### 容器与文本
-- **`div(props: DivProps, ...children: UIObject[]): UIObject`**
-  - 通用容器组件，用于包裹其他组件并应用布局样式。
-  - `DivProps`: `{ class?: string }` - `class` 属性用于指定布局，详见“布局系统”。
+- **`div(props: BaseProps, ...children: UIObject[]): UIObject`**
+  - 通用容器组件，用于包裹其他组件并应用布局与样式。
 
-- **`label(props: LabelProps, text: string | Signal<string>): UIObject`**
+- **`label(props: BaseProps, text: string | Signal<string>): UIObject`**
   - 静态或动态文本标签。
-  - `LabelProps`: `{ class?: string }`
 
 - **`h1`, `h2`, `h3`(text): UIObject**
   - 预设样式的标题标签，本质是 `label` 的封装。
 
 ### 交互组件
-- **`button(props: ButtonProps, text: string): UIObject`**
+- **`button(props: { onClick?: () => void } & BaseProps, text: string): UIObject`**
   - 可点击的按钮。
-  - `ButtonProps`: `{ onClick?: () => void, class?: string }`
-  - 按钮会在被点击时调用 `onClick` 回调。
+  - `onClick` 是一个为方便使用的回调，在鼠标左键点击时触发。
 
-- **`input(props: InputProps): UIObject`**
+- **`input(props: InputProps & BaseProps): UIObject`**
   - 文本或复选框输入。
   - `InputProps`:
     - `type?: "text" | "checkbox"` (默认为 "text")
@@ -125,12 +100,25 @@ render(App);
     - `checked?: Signal<boolean>`: (用于 checkbox) 选中状态的 Signal。
     - `onChange?: (checked: boolean) => void`: (用于 checkbox) 状态变化时的回调。
     - `placeholder?: string`
-    - `class?: string`
 
-- **`form(props: FormProps, ...children: UIObject[]): UIObject`**
+  - **运行时行为 (Text Type)**:
+    - **焦点获取 (Focus)**: 当用户点击组件时，它将获得焦点。
+      - `placeholder` 文本会被清除。
+      - 在当前的输入位置会出现一个闪烁的光标（例如 `|`）。
+    - **焦点丢失 (Blur)**: 当用户点击其他组件时，它将失去焦点。
+      - 闪烁的光标消失。
+      - 如果此时输入框内容为空，`placeholder` 文本将重新显示。
+    - **光标移动**:
+      - `left_arrow` 键: 光标向左移动一个字符位置。
+      - `right_arrow` 键: 光标向右移动一个字符位置。
+    - **文本编辑**:
+      - `backspace` 键: 删除光标前的一个字符。
+      - `delete` 键: 删除光标后的一个字符。
+      - 其他字符按键: 在光标位置插入对应字符。
+
+- **`form(props: { onSubmit?: () => void } & BaseProps, ...children: UIObject[]): UIObject`**
   - 表单容器，主要用于组织输入组件。
-  - `FormProps`: `{ onSubmit?: () => void, class?: string }`
-  - 在表单内按回车键（或点击提交按钮，如果未来实现）会触发 `onSubmit`。
+  - 在表单内按回车键会触发 `onSubmit`。
 
 ---
 
@@ -147,41 +135,6 @@ render(App);
     - `when: () => boolean`: 一个返回布尔值的访问器函数 (accessor)。
     - `fallback?: UIObject`: 当 `when` 返回 `false` 时要渲染的组件。
   - `child`: 当 `when` 返回 `true` 时要渲染的组件。
-
-  **SolidJS 示例:**
-  ```typescript
-  import { createSignal, Show } from "solid-js";
-
-  function App() {
-    const [loggedIn, setLoggedIn] = createSignal(false);
-    const toggle = () => setLoggedIn(!loggedIn());
-
-    return (
-      <Show
-        when={loggedIn()}
-        fallback={<button onClick={toggle}>Log In</button>}
-      >
-        <button onClick={toggle}>Log Out</button>
-      </Show>
-    );
-  }
-  ```
-
-  **ccTUI 目标版本:**
-  ```typescript
-  const App = () => {
-    const [loggedIn, setLoggedIn] = createSignal(false);
-    const toggle = () => setLoggedIn(!loggedIn());
-
-    return Show(
-      {
-        when: loggedIn, // 直接传递 Signal 的 getter
-        fallback: button({ onClick: toggle }, "Log In"),
-      },
-      button({ onClick: toggle }, "Log Out")
-    );
-  };
-  ```
 
 ---
 
@@ -206,34 +159,24 @@ render(App);
 - **`items-center`**: 交叉轴的中点对齐。
 - **`items-end`**: 交叉轴的终点对齐。
 
-### 示例
-```typescript
-// 一个垂直居中的登录框
-div({ class: "flex flex-col justify-center items-center" },
-  label("Username"),
-  input({}),
-  label("Password"),
-  input({}),
-  button("Login")
-)
-```
+### Color & Styling
 
-### 实现要点
-渲染引擎在计算布局时：
-1. 解析 `class` 字符串，转换为布局属性（如 `flexDirection`, `justifyContent`）。
-2. 实现一个简化的 Flexbox 算法，该算法能根据容器尺寸、子元素尺寸和布局属性，为每个子元素计算出正确的 `(x, y)` 坐标和 `(width, height)`。
-3. 在 `draw` 阶段，将计算出的区域传递给子组件进行绘制。
+除了布局，`class` 属性也用于控制组件的颜色。这借鉴了 TailwindCSS 的思想。
+
+- **文本颜色**: `text-<color>`
+- **背景颜色**: `bg-<color>`
+
+#### 可用颜色
+
+颜色名称直接映射自 `tweaked.cc` 的 `colors` API: `white`, `orange`, `magenta`, `lightBlue`, `yellow`, `lime`, `pink`, `gray`, `lightGray`, `cyan`, `purple`, `blue`, `brown`, `green`, `red`, `black`.
 
 ---
 
 ## 4. 响应式系统 (Reactivity System)
 
-框架的核心是其细粒度的响应式系统。该系统由 Signal 和 Effect 组成，其设计深受 SolidJS 启发。理解这两者是构建动态UI的关键。
+框架的核心是其细粒度的响应式系统。该系统由 Signal 和 Effect 组成。
 
 ### `createSignal`: 响应式的基本单元
-
-Signal 是一个包含值的“盒子”，当它的值发生变化时，它可以通知所有正在“监听”它的代码。
-
 - **`createSignal<T>(initialValue: T): [() => T, (newValue: T) => void]`**
   - 它接收一个初始值，并返回一个包含两个函数的数组：一个 `getter` 和一个 `setter`。
   - **Getter** (`() => T`): 一个无参数的函数，调用它会返回 Signal 的当前值。**重要的是，在特定上下文（如组件渲染或 Effect 中）调用 getter 会自动将该上下文注册为监听者。**
@@ -256,9 +199,6 @@ Signal 是一个包含值的“盒子”，当它的值发生变化时，它可�
   ```
 
 ### `createEffect`: 响应 Signal 的变化
-
-Effect 用于将响应式系统与外部世界（如日志、计时器、手动API调用）连接起来。它是一个自动跟踪其依赖（即它内部读取的 Signal）并重新执行的函数。
-
 - **`createEffect(fn: () => void): void`**
   - 它接收一个函数 `fn` 并立即执行一次。
   - 框架会监视 `fn` 在执行期间读取了哪些 Signal (调用了哪些 getter)。
@@ -293,7 +233,6 @@ Effect 用于将响应式系统与外部世界（如日志、计时器、手动A
   ```
 
 ### 复杂状态管理
-
 - **`createStore<T extends object>(initialValue: T): [T, (updater: ...) => void]`**
   - 用于响应式地管理对象和数组。与 `createSignal` 管理单个值不同，`createStore` 允许你独立地更新对象或数组的特定部分，并只触发关心这些部分的更新。其 API 应参考 SolidJS 的 `createStore`。
 
@@ -371,6 +310,8 @@ Effect 用于将响应式系统与外部世界（如日志、计时器、手动A
   - `flex-row`, `flex-col` - 设置 flex 方向
   - `justify-start`, `justify-center`, `justify-end`, `justify-between` - 主轴对齐
   - `items-start`, `items-center`, `items-end` - 交叉轴对齐
+  - `text-<color>` - 文本颜色（支持所有 CC 颜色）
+  - `bg-<color>` - 背景颜色（支持所有 CC 颜色）
 
 #### 渲染器 (renderer.ts)
 - ✅ 将 UI 树渲染到 ComputerCraft 终端
@@ -383,17 +324,6 @@ Effect 用于将响应式系统与外部世界（如日志、计时器、手动A
 - ✅ 事件循环（键盘、鼠标）
 - ✅ 自动焦点管理
 - ✅ 响应式重渲染
-
-### 📋 API 导出 (index.ts)
-- ✅ 所有新 API 已正确导出
-- ✅ 保留旧 API 以实现向后兼容
-
-### 🎯 示例代码
-- ✅ `main.new.ts` - 简单的计数器示例，演示响应式系统的基本用法
-
-### 🔄 向后兼容性
-- ✅ 旧的类组件系统（Signal, UIComponent, Button 等）仍然可用
-- ✅ 旧的示例代码 `main.ts` 不受影响
 
 ---
 
@@ -433,5 +363,8 @@ pnpm tstl -p ./tsconfig.tuiExample.json
 
 ```bash
 # 运行 ESLint 检查
-pnpm dlx eslint src/lib/ccTUI/reactivity.ts
+pnpm dlx eslint src/**/*.ts
+
+# OR
+just lint
 ```

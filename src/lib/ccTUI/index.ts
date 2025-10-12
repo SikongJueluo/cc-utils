@@ -50,6 +50,7 @@ export { Application, render } from "./application";
 export {
   UIObject,
   type LayoutProps,
+  type StyleProps,
   type ComputedLayout,
   type BaseProps,
 } from "./UIObject";

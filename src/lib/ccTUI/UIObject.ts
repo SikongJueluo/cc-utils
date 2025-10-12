@@ -18,6 +18,16 @@ export interface LayoutProps {
 }
 
 /**
+ * Style properties for colors and appearance
+ */
+export interface StyleProps {
+  /** Text color */
+  textColor?: number;
+  /** Background color */
+  backgroundColor?: number;
+}
+
+/**
  * Computed layout result after flexbox calculation
  */
 export interface ComputedLayout {
@@ -74,6 +84,9 @@ export class UIObject {
   /** Layout properties parsed from class string */
   layoutProps: LayoutProps;
   
+  /** Style properties parsed from class string */
+  styleProps: StyleProps;
+  
   /** Whether this component is currently mounted */
   mounted: boolean;
   
@@ -85,6 +98,9 @@ export class UIObject {
   
   /** Event handlers */
   handlers: Record<string, ((...args: unknown[]) => void) | undefined>;
+  
+  /** For input text components - cursor position */
+  cursorPos?: number;
 
   constructor(
     type: UIObjectType,
@@ -95,21 +111,56 @@ export class UIObject {
     this.props = props;
     this.children = children;
     this.layoutProps = {};
+    this.styleProps = {};
     this.mounted = false;
     this.cleanupFns = [];
     this.handlers = {};
     
-    // Parse layout from class prop
-    this.parseLayout();
+    // Parse layout and styles from class prop
+    this.parseClassNames();
     
     // Extract event handlers
     this.extractHandlers();
+    
+    // Initialize cursor position for text inputs
+    if (type === "input" && props.type !== "checkbox") {
+      this.cursorPos = 0;
+    }
   }
 
   /**
-   * Parse CSS-like class string into layout properties
+   * Map color name to ComputerCraft colors API value
+   * 
+   * @param colorName - The color name from class (e.g., "white", "red")
+   * @returns The color value from colors API, or undefined if invalid
    */
-  private parseLayout(): void {
+  private parseColor(colorName: string): number | undefined {
+    const colorMap: Record<string, number> = {
+      "white": colors.white,
+      "orange": colors.orange,
+      "magenta": colors.magenta,
+      "lightBlue": colors.lightBlue,
+      "yellow": colors.yellow,
+      "lime": colors.lime,
+      "pink": colors.pink,
+      "gray": colors.gray,
+      "lightGray": colors.lightGray,
+      "cyan": colors.cyan,
+      "purple": colors.purple,
+      "blue": colors.blue,
+      "brown": colors.brown,
+      "green": colors.green,
+      "red": colors.red,
+      "black": colors.black,
+    };
+    
+    return colorMap[colorName];
+  }
+
+  /**
+   * Parse CSS-like class string into layout and style properties
+   */
+  private parseClassNames(): void {
     const className = this.props.class as string | undefined;
     if (className === undefined) return;
 
@@ -141,6 +192,24 @@ export class UIObject {
         this.layoutProps.alignItems = "center";
       } else if (cls === "items-end") {
         this.layoutProps.alignItems = "end";
+      }
+      
+      // Text color (text-<color>)
+      else if (cls.startsWith("text-")) {
+        const colorName = cls.substring(5); // Remove "text-" prefix
+        const color = this.parseColor(colorName);
+        if (color !== undefined) {
+          this.styleProps.textColor = color;
+        }
+      }
+      
+      // Background color (bg-<color>)
+      else if (cls.startsWith("bg-")) {
+        const colorName = cls.substring(3); // Remove "bg-" prefix
+        const color = this.parseColor(colorName);
+        if (color !== undefined) {
+          this.styleProps.backgroundColor = color;
+        }
       }
     }
     
