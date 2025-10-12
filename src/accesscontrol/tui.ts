@@ -16,6 +16,7 @@ import {
   For,
   Switch,
   Match,
+  ScrollContainer,
 } from "../lib/ccTUI";
 import {
   AccessConfig,
@@ -65,7 +66,7 @@ const AccessControlTUI = () => {
   setConfig(() => loadedConfig);
 
   // Tab navigation functions
-  const tabNames = ["Basic", "Groups", "Welcome", "Warn", "Notice Toast"];
+  const tabNames = ["Basic", "Groups", "Welcome", "Warn", "Notice"];
 
   const showError = (message: string) => {
     setErrorState("show", true);
@@ -403,18 +404,23 @@ const AccessControlTUI = () => {
         ),
 
         // Users list
-        For({ each: () => getSelectedGroup().groupUsers ?? [] }, (user) =>
-          div(
-            { class: "flex flex-row items-center" },
-            label({}, user),
-            button(
-              {
-                class: "ml-1 bg-red text-white",
-                onClick: () => removeUser(user),
-              },
-              "X",
+        For(
+          {
+            class: "flex flex-col",
+            each: () => getSelectedGroup().groupUsers ?? [],
+          },
+          (user) =>
+            div(
+              { class: "flex flex-row items-center" },
+              label({}, user),
+              button(
+                {
+                  class: "ml-1 bg-red text-white",
+                  onClick: () => removeUser(user),
+                },
+                "X",
+              ),
             ),
-          ),
         ),
       ),
     );
@@ -532,20 +538,17 @@ const AccessControlTUI = () => {
     return Show(
       { when: () => errorState().show },
       div(
-        {
-          class:
-            "fixed top-1/4 left-1/4 right-1/4 bottom-1/4 bg-red text-white border",
-        },
-        div(
-          { class: "flex flex-col p-2" },
-          label({}, () => errorState().message),
-          button(
-            {
-              class: "mt-2 bg-white text-black",
-              onClick: hideError,
-            },
-            "OK",
-          ),
+        { class: "flex flex-col bg-red " },
+        label(
+          { class: "w-25 text-white", wordWrap: true },
+          () => errorState().message,
+        ),
+        button(
+          {
+            class: "bg-white text-black",
+            onClick: hideError,
+          },
+          "OK",
         ),
       ),
     );
@@ -597,27 +600,36 @@ const AccessControlTUI = () => {
     ),
 
     // Content area
-    div({ class: "flex-1 p-2 w-screen" }, TabContent()),
+    Show(
+      { when: () => !errorState().show },
+      div(
+        { class: "flex flex-col" },
+        ScrollContainer(
+          { class: "flex-1 p-2", width: 50, showScrollbar: true },
+          TabContent(),
+        ),
 
-    // Action buttons
-    div(
-      { class: "flex flex-row justify-center p-2" },
-      button(
-        {
-          class: "bg-green text-white mr-2",
-          onClick: handleSave,
-        },
-        "Save",
-      ),
-      button(
-        {
-          class: "bg-gray text-white",
-          onClick: () => {
-            // Close TUI - this will be handled by the application framework
-            error("TUI_CLOSE");
-          },
-        },
-        "Close",
+        // Action buttons
+        div(
+          { class: "flex flex-row justify-center p-2" },
+          button(
+            {
+              class: "bg-green text-white mr-2",
+              onClick: handleSave,
+            },
+            "Save",
+          ),
+          button(
+            {
+              class: "bg-gray text-white",
+              onClick: () => {
+                // Close TUI - this will be handled by the application framework
+                error("TUI_CLOSE");
+              },
+            },
+            "Close",
+          ),
+        ),
       ),
     ),
 

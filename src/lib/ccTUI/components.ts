@@ -4,7 +4,16 @@
  */
 
 import { UIObject, BaseProps, createTextNode } from "./UIObject";
-import { Accessor, Setter, Signal } from "./reactivity";
+import {
+  Accessor,
+  createEffect,
+  createMemo,
+  createSignal,
+  Setter,
+  Signal,
+} from "./reactivity";
+import { For } from "./controlFlow";
+import { logger } from "./context";
 
 /**
  * Props for div component
@@ -14,7 +23,10 @@ export type DivProps = BaseProps & Record<string, unknown>;
 /**
  * Props for label component
  */
-export type LabelProps = BaseProps & Record<string, unknown>;
+export type LabelProps = BaseProps & {
+  /** Whether to automatically wrap long text. Defaults to false. */
+  wordWrap?: boolean;
+} & Record<string, unknown>;
 
 /**
  * Props for button component
@@ -95,10 +107,78 @@ export function div(
  * label({}, () => `Hello, ${name()}!`)
  * ```
  */
+/**
+ * Splits a string by whitespace, keeping the whitespace as separate elements.
+ * This is a TSTL-compatible replacement for `text.split(/(\s+)/)`.
+ * @param text The text to split.
+ * @returns An array of words and whitespace.
+ */
+function splitByWhitespace(text: string): string[] {
+  const parts: string[] = [];
+  let currentWord = "";
+  let currentWhitespace = "";
+
+  for (const char of text) {
+    if (char === " " || char === "\t" || char === "\n" || char === "\r") {
+      if (currentWord.length > 0) {
+        parts.push(currentWord);
+        currentWord = "";
+      }
+      currentWhitespace += char;
+    } else {
+      if (currentWhitespace.length > 0) {
+        parts.push(currentWhitespace);
+        currentWhitespace = "";
+      }
+      currentWord += char;
+    }
+  }
+
+  if (currentWord.length > 0) {
+    parts.push(currentWord);
+  }
+  if (currentWhitespace.length > 0) {
+    parts.push(currentWhitespace);
+  }
+
+  return parts;
+}
+
 export function label(
   props: LabelProps,
   text: string | Accessor<string>,
 ): UIObject {
+  if (props.wordWrap === true) {
+    logger?.debug(`label : ${textutils.serialiseJSON(props)}`);
+    const p = { ...props };
+    delete p.wordWrap;
+    const containerProps: DivProps = {
+      ...p,
+      class: `${p.class ?? ""} flex flex-row flex-wrap`,
+    };
+
+    if (typeof text === "string") {
+      // Handle static strings
+      const words = splitByWhitespace(text);
+      const children = words.map((word) => createTextNode(word));
+      const node = new UIObject("div", containerProps, children);
+      children.forEach((child) => (child.parent = node));
+      return node;
+    } else {
+      // Handle reactive strings (Accessor<string>)
+      const words = createMemo(() => splitByWhitespace(text()));
+
+      const forNode = For(
+        { class: `${p.class ?? ""} flex flex-row flex-wrap`, each: words },
+        (word) => createTextNode(word),
+      );
+
+      const node = new UIObject("div", containerProps, [forNode]);
+      forNode.parent = node;
+      return node;
+    }
+  }
+
   const textNode = createTextNode(text);
   const node = new UIObject("label", props, [textNode]);
   textNode.parent = node;

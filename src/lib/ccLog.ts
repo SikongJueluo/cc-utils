@@ -49,31 +49,30 @@ export class CCLog {
    * For SECOND interval: YYYY-MM-DD-HH-MM-SS
    */
   private getTimePeriodString(time: number): string {
-    // Calculate which time period this timestamp falls into
     const periodStart = Math.floor(time / this.interval) * this.interval;
-    const periodDate = os.date("*t", periodStart);
+    const d = os.date("*t", periodStart);
 
     if (this.interval >= DAY) {
-      return `${periodDate.year}-${String(periodDate.month).padStart(2, "0")}-${String(periodDate.day).padStart(2, "0")}`;
-    } else {
-      return `[${periodDate.year}-${String(periodDate.month).padStart(2, "0")}-${String(periodDate.day).padStart(2, "0")}] - [${String(periodDate.hour).padStart(2, "0")}-${String(periodDate.min).padStart(2, "0")}-${String(periodDate.sec).padStart(2, "0")}]`;
+      return `${d.year}-${string.format("%02d", d.month)}-${string.format("%02d", d.day)}`;
+    } else if (this.interval >= HOUR) {
+      return `${d.year}-${string.format("%02d", d.month)}-${string.format("%02d", d.day)}_${string.format("%02d", d.hour)}`;
+    } else if (this.interval >= MINUTE) {
+      return `${d.year}-${string.format("%02d", d.month)}-${string.format("%02d", d.day)}_${string.format("%02d", d.hour)}-${string.format("%02d", d.min)}`;
     }
+    return `${d.year}-${string.format("%02d", d.month)}-${string.format("%02d", d.day)}_${string.format("%02d", d.hour)}-${string.format("%02d", d.min)}-${string.format("%02d", d.sec)}`;
   }
 
   private generateFilePath(baseFilename: string, timePeriod: string): string {
-    // Extract file extension if present
-    const fileNameSubStrings = baseFilename.split(".");
-    let filenameWithoutExt: string;
-    let extension = "";
+    const scriptDir = shell.dir() ?? "";
 
-    if (fileNameSubStrings.length > 1) {
-      filenameWithoutExt = fileNameSubStrings[0];
-      extension = fileNameSubStrings[1];
-    } else {
-      filenameWithoutExt = baseFilename;
-    }
+    const [filenameWithoutExt, extension] = baseFilename.includes(".")
+      ? baseFilename.split(".")
+      : [baseFilename, "log"];
 
-    return `${shell.dir()}/${filenameWithoutExt}[${timePeriod}].${extension}`;
+    return fs.combine(
+      scriptDir,
+      `${filenameWithoutExt}_${timePeriod}.${extension}`,
+    );
   }
 
   private checkAndRotateLogFile() {
@@ -152,6 +151,10 @@ export class CCLog {
 
   public error(msg: string) {
     this.writeLine(this.getFormatMsg(msg, LogLevel.Error), colors.red);
+  }
+
+  public setInTerminal(value: boolean) {
+    this.inTerm = value;
   }
 
   public close() {

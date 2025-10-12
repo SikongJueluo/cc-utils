@@ -5,8 +5,8 @@
 import { UIObject } from "./UIObject";
 import { calculateLayout } from "./layout";
 import { render as renderTree, clearScreen } from "./renderer";
-import { CCLog } from "../ccLog";
-import { findScrollContainer } from "./scrollContainer";
+import { CCLog, HOUR } from "../ccLog";
+import { setLogger } from "./context";
 
 /**
  * Main application class
@@ -28,7 +28,8 @@ export class Application {
     const [width, height] = term.getSize();
     this.termWidth = width;
     this.termHeight = height;
-    this.logger = new CCLog("tui_debug.log", false);
+    this.logger = new CCLog("tui_debug.log", false, HOUR);
+    setLogger(this.logger);
     this.logger.debug("Application constructed.");
   }
 

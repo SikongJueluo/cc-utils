@@ -332,8 +332,9 @@ function drawNode(
               ? node.textContent()
               : node.textContent;
 
-          term.setTextColor(textColor ?? colors.white);
-          term.setBackgroundColor(bgColor ?? colors.black);
+          if (bgColor !== undefined) {
+            term.setBackgroundColor(bgColor);
+          }
           term.setCursorPos(x, y);
           term.write(text.substring(0, width));
         }

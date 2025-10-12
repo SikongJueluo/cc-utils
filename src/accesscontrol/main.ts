@@ -222,6 +222,7 @@ function main(args: string[]) {
       return;
     } else if (args[0] == "config") {
       log.info("Launching Access Control TUI...");
+      log.setInTerminal(false);
       try {
         launchAccessControlTUI();
       } catch (error) {
