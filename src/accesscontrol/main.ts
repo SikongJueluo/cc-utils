@@ -1,13 +1,14 @@
 import { CCLog, DAY } from "@/lib/ccLog";
 import { ToastConfig, UserGroupConfig, loadConfig, setLog } from "./config";
 import { createAccessControlCLI } from "./cli";
+import { launchAccessControlTUI } from "./tui";
 import * as peripheralManager from "../lib/PeripheralManager";
 
 const DEBUG = false;
 const args = [...$vararg];
 
 // Init Log
-const log = new CCLog("accesscontrol.log", DAY);
+const log = new CCLog("accesscontrol.log", true, DAY);
 setLog(log);
 
 // Load Config
@@ -174,6 +175,21 @@ function mainLoop() {
   }
 }
 
+function keyboardLoop() {
+  while (true) {
+    const [eventType, key] = os.pullEvent("key");
+    if (eventType === "key" && key === keys.c) {
+      log.info("Launching Access Control TUI...");
+      try {
+        launchAccessControlTUI();
+        log.info("TUI closed, resuming normal operation");
+      } catch (error) {
+        log.error(`TUI error: ${textutils.serialise(error as object)}`);
+      }
+    }
+  }
+}
+
 function main(args: string[]) {
   log.info("Starting access control system, get args: " + args.join(", "));
   if (args.length == 1) {
@@ -187,6 +203,9 @@ function main(args: string[]) {
         groupNames,
       );
 
+      print(
+        "Access Control System started. Press 'c' to open configuration TUI.",
+      );
       parallel.waitForAll(
         () => {
           mainLoop();
@@ -197,12 +216,25 @@ function main(args: string[]) {
         () => {
           watchLoop();
         },
+        () => {
+          keyboardLoop();
+        },
       );
+      return;
+    } else if (args[0] == "config") {
+      log.info("Launching Access Control TUI...");
+      try {
+        launchAccessControlTUI();
+      } catch (error) {
+        log.error(`TUI error: ${textutils.serialise(error as object)}`);
+      }
       return;
     }
   }
 
-  print(`Usage: accesscontrol start`);
+  print(`Usage: accesscontrol start | config`);
+  print("  start  - Start the access control system with monitoring");
+  print("  config - Open configuration TUI");
 }
 
 try {
