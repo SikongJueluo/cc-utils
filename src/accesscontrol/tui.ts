@@ -14,6 +14,8 @@ import {
   render,
   Show,
   For,
+  Switch,
+  Match,
 } from "../lib/ccTUI";
 import {
   AccessConfig,
@@ -63,13 +65,7 @@ const AccessControlTUI = () => {
   setConfig(() => loadedConfig);
 
   // Tab navigation functions
-  const tabNames = [
-    "Basic",
-    "Groups",
-    "Welcome Toast",
-    "Warn Toast",
-    "Notice Toast",
-  ];
+  const tabNames = ["Basic", "Groups", "Welcome", "Warn", "Notice Toast"];
 
   const showError = (message: string) => {
     setErrorState("show", true);
@@ -247,52 +243,63 @@ const AccessControlTUI = () => {
   const BasicTab = () => {
     return div(
       { class: "flex flex-col" },
-      label({}, "Detect Interval (ms):"),
-      input({
-        type: "text",
-        value: () => config().detectInterval?.toString() ?? "",
-        onInput: (value) => {
-          const num = validateNumber(value);
-          if (num !== null) setConfig("detectInterval", num);
-        },
-      }),
-
-      label({}, "Watch Interval (ms):"),
-      input({
-        type: "text",
-        value: () => config().watchInterval?.toString() ?? "",
-        onInput: (value) => {
-          const num = validateNumber(value);
-          if (num !== null) setConfig("watchInterval", num);
-        },
-      }),
-
-      label({}, "Notice Times:"),
-      input({
-        type: "text",
-        value: () => config().noticeTimes?.toString() ?? "",
-        onInput: (value) => {
-          const num = validateNumber(value);
-          if (num !== null) setConfig("noticeTimes", num);
-        },
-      }),
-
-      label({}, "Detect Range:"),
-      input({
-        type: "text",
-        value: () => config().detectRange?.toString() ?? "",
-        onInput: (value) => {
-          const num = validateNumber(value);
-          if (num !== null) setConfig("detectRange", num);
-        },
-      }),
-
-      label({}, "Is Warn:"),
-      input({
-        type: "checkbox",
-        checked: () => config().isWarn ?? false,
-        onChange: (checked) => setConfig("isWarn", checked),
-      }),
+      div(
+        { class: "flex flex-row" },
+        label({}, "Detect Interval (ms):"),
+        input({
+          type: "text",
+          value: () => config().detectInterval?.toString() ?? "",
+          onInput: (value) => {
+            const num = validateNumber(value);
+            if (num !== null) setConfig("detectInterval", num);
+          },
+        }),
+      ),
+      div(
+        { class: "flex flex-row" },
+        label({}, "Watch Interval (ms):"),
+        input({
+          type: "text",
+          value: () => config().watchInterval?.toString() ?? "",
+          onInput: (value) => {
+            const num = validateNumber(value);
+            if (num !== null) setConfig("watchInterval", num);
+          },
+        }),
+      ),
+      div(
+        { class: "flex flex-row" },
+        label({}, "Notice Times:"),
+        input({
+          type: "text",
+          value: () => config().noticeTimes?.toString() ?? "",
+          onInput: (value) => {
+            const num = validateNumber(value);
+            if (num !== null) setConfig("noticeTimes", num);
+          },
+        }),
+      ),
+      div(
+        { class: "flex flex-row" },
+        label({}, "Detect Range:"),
+        input({
+          type: "text",
+          value: () => config().detectRange?.toString() ?? "",
+          onInput: (value) => {
+            const num = validateNumber(value);
+            if (num !== null) setConfig("detectRange", num);
+          },
+        }),
+      ),
+      div(
+        { class: "flex flex-row" },
+        label({}, "Is Warn:"),
+        input({
+          type: "checkbox",
+          checked: () => config().isWarn ?? false,
+          onChange: (checked) => setConfig("isWarn", checked),
+        }),
+      ),
     );
   };
 
@@ -301,7 +308,6 @@ const AccessControlTUI = () => {
    */
   const GroupsTab = () => {
     const groups = getAllGroups();
-    const selectedGroup = getSelectedGroup();
 
     return div(
       { class: "flex flex-row" },
@@ -309,7 +315,7 @@ const AccessControlTUI = () => {
       div(
         { class: "flex flex-col" },
         label({}, "Groups:"),
-        For({ each: () => groups }, (group, index) =>
+        For({ each: () => groups, class: "flex flex-col" }, (group, index) =>
           button(
             {
               class:
@@ -324,59 +330,64 @@ const AccessControlTUI = () => {
       // Right side - Group details
       div(
         { class: "flex flex-col ml-2" },
-        label({}, () => `Group: ${selectedGroup.groupName}`),
+        label({}, () => `Group: ${getSelectedGroup().groupName}`),
 
-        label({}, "Is Allowed:"),
-        input({
-          type: "checkbox",
-          checked: () => selectedGroup.isAllowed,
-          onChange: (checked) => {
-            const groupIndex = selectedGroupIndex();
-            if (groupIndex === 0) {
-              const currentAdmin = config().adminGroupConfig;
-              setConfig("adminGroupConfig", {
-                ...currentAdmin,
-                isAllowed: checked,
-              });
-            } else {
-              const actualIndex = groupIndex - 1;
-              const currentGroups = config().usersGroups;
-              const currentGroup = currentGroups[actualIndex];
-              const newGroups = [...currentGroups];
-              newGroups[actualIndex] = {
-                ...currentGroup,
-                isAllowed: checked,
-              };
-              setConfig("usersGroups", newGroups);
-            }
-          },
-        }),
-
-        label({}, "Is Notice:"),
-        input({
-          type: "checkbox",
-          checked: () => selectedGroup.isNotice,
-          onChange: (checked) => {
-            const groupIndex = selectedGroupIndex();
-            if (groupIndex === 0) {
-              const currentAdmin = config().adminGroupConfig;
-              setConfig("adminGroupConfig", {
-                ...currentAdmin,
-                isNotice: checked,
-              });
-            } else {
-              const actualIndex = groupIndex - 1;
-              const currentGroups = config().usersGroups;
-              const currentGroup = currentGroups[actualIndex];
-              const newGroups = [...currentGroups];
-              newGroups[actualIndex] = {
-                ...currentGroup,
-                isNotice: checked,
-              };
-              setConfig("usersGroups", newGroups);
-            }
-          },
-        }),
+        div(
+          { class: "flex flex-row" },
+          label({}, "Is Allowed:"),
+          input({
+            type: "checkbox",
+            checked: () => getSelectedGroup().isAllowed,
+            onChange: (checked) => {
+              const groupIndex = selectedGroupIndex();
+              if (groupIndex === 0) {
+                const currentAdmin = config().adminGroupConfig;
+                setConfig("adminGroupConfig", {
+                  ...currentAdmin,
+                  isAllowed: checked,
+                });
+              } else {
+                const actualIndex = groupIndex - 1;
+                const currentGroups = config().usersGroups;
+                const currentGroup = currentGroups[actualIndex];
+                const newGroups = [...currentGroups];
+                newGroups[actualIndex] = {
+                  ...currentGroup,
+                  isAllowed: checked,
+                };
+                setConfig("usersGroups", newGroups);
+              }
+            },
+          }),
+        ),
+        div(
+          { class: "flex flex-row" },
+          label({}, "Is Notice:"),
+          input({
+            type: "checkbox",
+            checked: () => getSelectedGroup().isNotice,
+            onChange: (checked) => {
+              const groupIndex = selectedGroupIndex();
+              if (groupIndex === 0) {
+                const currentAdmin = config().adminGroupConfig;
+                setConfig("adminGroupConfig", {
+                  ...currentAdmin,
+                  isNotice: checked,
+                });
+              } else {
+                const actualIndex = groupIndex - 1;
+                const currentGroups = config().usersGroups;
+                const currentGroup = currentGroups[actualIndex];
+                const newGroups = [...currentGroups];
+                newGroups[actualIndex] = {
+                  ...currentGroup,
+                  isNotice: checked,
+                };
+                setConfig("usersGroups", newGroups);
+              }
+            },
+          }),
+        ),
 
         label({}, "Group Users:"),
         // User management
@@ -392,7 +403,7 @@ const AccessControlTUI = () => {
         ),
 
         // Users list
-        For({ each: () => selectedGroup.groupUsers ?? [] }, (user) =>
+        For({ each: () => getSelectedGroup().groupUsers ?? [] }, (user) =>
           div(
             { class: "flex flex-row items-center" },
             label({}, user),
@@ -401,7 +412,7 @@ const AccessControlTUI = () => {
                 class: "ml-1 bg-red text-white",
                 onClick: () => removeUser(user),
               },
-              "Remove",
+              "X",
             ),
           ),
         ),
@@ -419,9 +430,10 @@ const AccessControlTUI = () => {
       const toastConfig = config()[toastType];
 
       return div(
-        { class: "flex flex-col" },
+        { class: "flex flex-col w-full" },
         label({}, "Title (JSON):"),
         input({
+          class: "w-full",
           type: "text",
           value: () => textutils.serialiseJSON(toastConfig?.title) ?? "",
           onInput: (value) => {
@@ -443,6 +455,7 @@ const AccessControlTUI = () => {
 
         label({}, "Message (JSON):"),
         input({
+          class: "w-full",
           type: "text",
           value: () => textutils.serialiseJSON(toastConfig?.msg) ?? "",
           onInput: (value) => {
@@ -462,38 +475,47 @@ const AccessControlTUI = () => {
           },
         }),
 
-        label({}, "Prefix:"),
-        input({
-          type: "text",
-          value: () => toastConfig?.prefix ?? "",
-          onInput: (value) => {
-            const currentConfig = config();
-            const currentToast = currentConfig[toastType];
-            setConfig(toastType, { ...currentToast, prefix: value });
-          },
-        }),
+        div(
+          { class: "flex flex-row" },
+          label({}, "Prefix:"),
+          input({
+            type: "text",
+            value: () => toastConfig?.prefix ?? "",
+            onInput: (value) => {
+              const currentConfig = config();
+              const currentToast = currentConfig[toastType];
+              setConfig(toastType, { ...currentToast, prefix: value });
+            },
+          }),
+        ),
 
-        label({}, "Brackets:"),
-        input({
-          type: "text",
-          value: () => toastConfig?.brackets ?? "",
-          onInput: (value) => {
-            const currentConfig = config();
-            const currentToast = currentConfig[toastType];
-            setConfig(toastType, { ...currentToast, brackets: value });
-          },
-        }),
+        div(
+          { class: "flex flex-row" },
+          label({}, "Brackets:"),
+          input({
+            type: "text",
+            value: () => toastConfig?.brackets ?? "",
+            onInput: (value) => {
+              const currentConfig = config();
+              const currentToast = currentConfig[toastType];
+              setConfig(toastType, { ...currentToast, brackets: value });
+            },
+          }),
+        ),
 
-        label({}, "Bracket Color:"),
-        input({
-          type: "text",
-          value: () => toastConfig?.bracketColor ?? "",
-          onInput: (value) => {
-            const currentConfig = config();
-            const currentToast = currentConfig[toastType];
-            setConfig(toastType, { ...currentToast, bracketColor: value });
-          },
-        }),
+        div(
+          { class: "flex flex-row" },
+          label({}, "Bracket Color:"),
+          input({
+            type: "text",
+            value: () => toastConfig?.bracketColor ?? "",
+            onInput: (value) => {
+              const currentConfig = config();
+              const currentToast = currentConfig[toastType];
+              setConfig(toastType, { ...currentToast, bracketColor: value });
+            },
+          }),
+        ),
       );
     };
   };
@@ -533,13 +555,20 @@ const AccessControlTUI = () => {
    * Tab Content Renderer
    */
   const TabContent = () => {
-    const tab = currentTab();
-    if (tab === TABS.BASIC) return BasicTab();
-    if (tab === TABS.GROUPS) return GroupsTab();
-    if (tab === TABS.WELCOME_TOAST) return WelcomeToastTab();
-    if (tab === TABS.WARN_TOAST) return WarnToastTab();
-    if (tab === TABS.NOTICE_TOAST) return NoticeToastTab();
-    return BasicTab(); // fallback
+    return Switch(
+      { fallback: BasicTab() },
+      Match({ when: () => currentTab() === TABS.BASIC }, BasicTab()),
+      Match({ when: () => currentTab() === TABS.GROUPS }, GroupsTab()),
+      Match(
+        { when: () => currentTab() === TABS.WELCOME_TOAST },
+        WelcomeToastTab(),
+      ),
+      Match({ when: () => currentTab() === TABS.WARN_TOAST }, WarnToastTab()),
+      Match(
+        { when: () => currentTab() === TABS.NOTICE_TOAST },
+        NoticeToastTab(),
+      ),
+    );
   };
 
   /**
@@ -548,7 +577,10 @@ const AccessControlTUI = () => {
   return div(
     { class: "flex flex-col h-full" },
     // Header
-    h1("Access Control Configuration"),
+    div(
+      { class: "flex flex-row justify-center" },
+      h1("Access Control Configuration"),
+    ),
 
     // Tab bar
     div(
@@ -565,7 +597,7 @@ const AccessControlTUI = () => {
     ),
 
     // Content area
-    div({ class: "flex-1 p-2" }, TabContent()),
+    div({ class: "flex-1 p-2 w-screen" }, TabContent()),
 
     // Action buttons
     div(

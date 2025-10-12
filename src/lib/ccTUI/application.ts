@@ -6,6 +6,7 @@ import { UIObject } from "./UIObject";
 import { calculateLayout } from "./layout";
 import { render as renderTree, clearScreen } from "./renderer";
 import { CCLog } from "../ccLog";
+import { findScrollContainer } from "./scrollContainer";
 
 /**
  * Main application class
@@ -138,7 +139,7 @@ export class Application {
       if (currentTime - this.lastBlinkTime >= this.BLINK_INTERVAL) {
         this.lastBlinkTime = currentTime;
         this.cursorBlinkState = !this.cursorBlinkState;
-        
+
         // Only trigger render if we have a focused text input
         if (
           this.focusedNode !== undefined &&
@@ -172,6 +173,20 @@ export class Application {
           ),
         );
         this.handleMouseClick(
+          eventData[0] as number,
+          eventData[1] as number,
+          eventData[2] as number,
+        );
+      } else if (eventType === "mouse_scroll") {
+        this.logger.debug(
+          string.format(
+            "eventLoop: Mouse scroll detected at (%d, %d) direction %d",
+            eventData[1],
+            eventData[2],
+            eventData[0],
+          ),
+        );
+        this.handleMouseScroll(
           eventData[0] as number,
           eventData[1] as number,
           eventData[2] as number,
@@ -213,7 +228,10 @@ export class Application {
           }
         }
       }
-    } else if (this.focusedNode !== undefined && this.focusedNode.type === "input") {
+    } else if (
+      this.focusedNode !== undefined &&
+      this.focusedNode.type === "input"
+    ) {
       // Handle text input key events
       const type = this.focusedNode.props.type as string | undefined;
       if (type !== "checkbox") {
@@ -231,10 +249,7 @@ export class Application {
     const valueProp = this.focusedNode.props.value;
     const onInputProp = this.focusedNode.props.onInput;
 
-    if (
-      typeof valueProp !== "function" ||
-      typeof onInputProp !== "function"
-    ) {
+    if (typeof valueProp !== "function" || typeof onInputProp !== "function") {
       return;
     }
 
@@ -419,6 +434,72 @@ export class Application {
       const currentIndex = interactive.indexOf(this.focusedNode);
       const nextIndex = (currentIndex + 1) % interactive.length;
       this.focusedNode = interactive[nextIndex];
+    }
+  }
+
+  /**
+   * Find the scrollable UI node at a specific screen position
+   */
+  private findScrollableNodeAt(
+    node: UIObject,
+    x: number,
+    y: number,
+  ): UIObject | undefined {
+    // Check children first (depth-first)
+    for (const child of node.children) {
+      const found = this.findScrollableNodeAt(child, x, y);
+      if (found !== undefined) {
+        return found;
+      }
+    }
+
+    // Check this node
+    if (node.layout !== undefined) {
+      const { x: nx, y: ny, width, height } = node.layout;
+      const hit = x >= nx && x < nx + width && y >= ny && y < ny + height;
+      if (hit) {
+        this.logger.debug(
+          string.format(
+            "findNodeAt: Hit test TRUE for %s at (%d, %d)",
+            node.type,
+            nx,
+            ny,
+          ),
+        );
+        // Only return scrollable elements
+        if (node.type === "scroll-container") {
+          this.logger.debug("findNodeAt: Node is scrollable, returning.");
+          return node;
+        }
+      }
+    }
+
+    return undefined;
+  }
+
+  /**
+   * Handle mouse scroll events
+   */
+  private handleMouseScroll(direction: number, x: number, y: number): void {
+    if (this.root === undefined) return;
+
+    // Find which element was scrolled over
+    const scrollContainer = this.findScrollableNodeAt(this.root, x, y);
+
+    if (scrollContainer?.scrollProps) {
+      // Scroll by 1 line per wheel step
+      const scrollAmount = direction * 1;
+      scrollContainer.scrollBy(0, scrollAmount);
+      this.needsRender = true;
+
+      this.logger.debug(
+        string.format(
+          "handleMouseScroll: Scrolled container by %d, new position: (%d, %d)",
+          scrollAmount,
+          scrollContainer.scrollProps.scrollX,
+          scrollContainer.scrollProps.scrollY,
+        ),
+      );
     }
   }
 

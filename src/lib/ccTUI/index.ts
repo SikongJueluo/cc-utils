@@ -41,7 +41,26 @@ export {
 } from "./components";
 
 // Control flow
-export { For, Show, type ForProps, type ShowProps } from "./controlFlow";
+export {
+  For,
+  Show,
+  Switch,
+  Match,
+  type ForProps,
+  type ShowProps,
+  type SwitchProps,
+  type MatchProps,
+} from "./controlFlow";
+
+// Scroll container
+export {
+  ScrollContainer,
+  isScrollContainer,
+  findScrollContainer,
+  isPointVisible,
+  screenToContent,
+  type ScrollContainerProps,
+} from "./scrollContainer";
 
 // Application
 export { Application, render } from "./application";
@@ -51,6 +70,7 @@ export {
   UIObject,
   type LayoutProps,
   type StyleProps,
+  type ScrollProps,
   type ComputedLayout,
   type BaseProps,
 } from "./UIObject";

@@ -1,5 +1,5 @@
 import { CCLog, DAY } from "@/lib/ccLog";
-import { ToastConfig, UserGroupConfig, loadConfig, setLog } from "./config";
+import { ToastConfig, UserGroupConfig, loadConfig } from "./config";
 import { createAccessControlCLI } from "./cli";
 import { launchAccessControlTUI } from "./tui";
 import * as peripheralManager from "../lib/PeripheralManager";
@@ -9,7 +9,6 @@ const args = [...$vararg];
 
 // Init Log
 const log = new CCLog("accesscontrol.log", true, DAY);
-setLog(log);
 
 // Load Config
 const configFilepath = `${shell.dir()}/access.config.json`;

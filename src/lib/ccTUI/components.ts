@@ -176,11 +176,11 @@ export function input(props: InputProps): UIObject {
   const normalizedProps = { ...props };
 
   if (Array.isArray(normalizedProps.value)) {
-    normalizedProps.value = (normalizedProps.value)[0];
+    normalizedProps.value = normalizedProps.value[0];
   }
 
   if (Array.isArray(normalizedProps.checked)) {
-    normalizedProps.checked = (normalizedProps.checked)[0];
+    normalizedProps.checked = normalizedProps.checked[0];
   }
 
   return new UIObject("input", normalizedProps, []);

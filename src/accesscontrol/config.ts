@@ -1,7 +1,4 @@
-import { CCLog } from "@/lib/ccLog";
 import * as dkjson from "@sikongjueluo/dkjson-types";
-
-let log: CCLog | undefined;
 
 interface ToastConfig {
   title: MinecraftTextComponent;
@@ -104,10 +101,6 @@ const defaultConfig: AccessConfig = {
   },
 };
 
-function setLog(newLog: CCLog) {
-  log = newLog;
-}
-
 function loadConfig(filepath: string): AccessConfig {
   const [fp] = io.open(filepath, "r");
   if (fp == undefined) {
@@ -121,18 +114,18 @@ function loadConfig(filepath: string): AccessConfig {
     return defaultConfig;
   }
 
-  const [config, pos, err] = dkjson.decode(configJson);
-  if (config == undefined) {
-    log?.warn(
-      `Config decode failed at ${pos}, use default instead. Error :${err}`,
-    );
-    return defaultConfig;
-  }
+  // const [config, pos, err] = dkjson.decode(configJson);
+  // if (config == undefined) {
+  //   log?.warn(
+  //     `Config decode failed at ${pos}, use default instead. Error :${err}`,
+  //   );
+  //   return defaultConfig;
+  // }
 
   // Not use external lib
-  // const config = textutils.unserialiseJSON(configJson, {
-  //   parse_empty_array: true,
-  // });
+  const config = textutils.unserialiseJSON(configJson, {
+    parse_empty_array: true,
+  });
 
   return config as AccessConfig;
 }
@@ -155,11 +148,4 @@ function saveConfig(config: AccessConfig, filepath: string) {
   fp.close();
 }
 
-export {
-  ToastConfig,
-  UserGroupConfig,
-  AccessConfig,
-  loadConfig,
-  saveConfig,
-  setLog,
-};
+export { ToastConfig, UserGroupConfig, AccessConfig, loadConfig, saveConfig };

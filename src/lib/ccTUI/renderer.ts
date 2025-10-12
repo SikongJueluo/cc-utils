@@ -4,6 +4,7 @@
 
 import { UIObject } from "./UIObject";
 import { Accessor } from "./reactivity";
+import { isScrollContainer } from "./scrollContainer";
 
 /**
  * Get text content from a node (resolving signals if needed)
@@ -11,50 +12,144 @@ import { Accessor } from "./reactivity";
 function getTextContent(node: UIObject): string {
   if (node.textContent !== undefined) {
     if (typeof node.textContent === "function") {
-      return (node.textContent)();
+      return node.textContent();
     }
     return node.textContent;
   }
-  
+
   // For nodes with text children, get their content
   if (node.children.length > 0 && node.children[0].textContent !== undefined) {
     const child = node.children[0];
     if (typeof child.textContent === "function") {
-      return (child.textContent)();
+      return child.textContent();
     }
     return child.textContent!;
   }
-  
+
   return "";
 }
 
 /**
+ * Check if a position is within the visible area of all scroll container ancestors
+ */
+function isPositionVisible(
+  node: UIObject,
+  screenX: number,
+  screenY: number,
+): boolean {
+  let current = node.parent;
+  while (current) {
+    if (isScrollContainer(current) && current.layout && current.scrollProps) {
+      const { x: containerX, y: containerY } = current.layout;
+      const { viewportWidth, viewportHeight } = current.scrollProps;
+
+      // Check if position is within the scroll container's viewport
+      if (
+        screenX < containerX ||
+        screenX >= containerX + viewportWidth ||
+        screenY < containerY ||
+        screenY >= containerY + viewportHeight
+      ) {
+        return false;
+      }
+    }
+    current = current.parent;
+  }
+  return true;
+}
+
+/**
+ * Draw a scrollbar for a scroll container
+ */
+function drawScrollbar(container: UIObject): void {
+  if (
+    !container.layout ||
+    !container.scrollProps ||
+    container.scrollProps.showScrollbar === false
+  ) {
+    return;
+  }
+
+  const { x, y, width, height } = container.layout;
+  const { scrollY, maxScrollY, viewportHeight, contentHeight } =
+    container.scrollProps;
+
+  // Only draw vertical scrollbar if content is scrollable
+  if (maxScrollY <= 0) return;
+
+  const scrollbarX = x + width - 1; // Position scrollbar at the right edge
+  const scrollbarHeight = height;
+
+  // Calculate scrollbar thumb position and size
+  const thumbHeight = Math.max(
+    1,
+    Math.floor((viewportHeight / contentHeight) * scrollbarHeight),
+  );
+  const thumbPosition = Math.floor(
+    (scrollY / maxScrollY) * (scrollbarHeight - thumbHeight),
+  );
+
+  // Save current colors
+  const [origX, origY] = term.getCursorPos();
+
+  try {
+    // Draw scrollbar track
+    term.setTextColor(colors.gray);
+    term.setBackgroundColor(colors.lightGray);
+
+    for (let i = 0; i < scrollbarHeight; i++) {
+      term.setCursorPos(scrollbarX, y + i);
+      if (i >= thumbPosition && i < thumbPosition + thumbHeight) {
+        // Draw scrollbar thumb
+        term.setBackgroundColor(colors.gray);
+        term.write(" ");
+      } else {
+        // Draw scrollbar track
+        term.setBackgroundColor(colors.lightGray);
+        term.write(" ");
+      }
+    }
+  } finally {
+    term.setCursorPos(origX, origY);
+  }
+}
+
+/**
  * Draw a single UI node to the terminal
- * 
+ *
  * @param node - The node to draw
  * @param focused - Whether this node has focus
  * @param cursorBlinkState - Whether the cursor should be visible (for blinking)
  */
-function drawNode(node: UIObject, focused: boolean, cursorBlinkState: boolean): void {
+function drawNode(
+  node: UIObject,
+  focused: boolean,
+  cursorBlinkState: boolean,
+): void {
   if (!node.layout) return;
-  
-  const { x, y, width } = node.layout;
-  
+
+  const { x, y, width, height } = node.layout;
+
+  // Check if this node is visible within scroll container viewports
+  if (!isPositionVisible(node, x, y)) {
+    return;
+  }
+
   // Save cursor position
   const [origX, origY] = term.getCursorPos();
-  
+
   try {
     // Default colors that can be overridden by styleProps
     let textColor = node.styleProps.textColor;
     const bgColor = node.styleProps.backgroundColor;
-    
+
     switch (node.type) {
       case "label":
       case "h1":
       case "h2":
       case "h3": {
         const text = getTextContent(node);
-        
+
         // Set colors based on heading level (if not overridden by styleProps)
         if (textColor === undefined) {
           if (node.type === "h1") {
@@ -67,18 +162,18 @@ function drawNode(node: UIObject, focused: boolean, cursorBlinkState: boolean): 
             textColor = colors.white;
           }
         }
-        
+
         term.setTextColor(textColor);
         term.setBackgroundColor(bgColor ?? colors.black);
-        
+
         term.setCursorPos(x, y);
         term.write(text.substring(0, width));
         break;
       }
-      
+
       case "button": {
         const text = getTextContent(node);
-        
+
         // Set colors based on focus (if not overridden by styleProps)
         if (focused) {
           term.setTextColor(textColor ?? colors.black);
@@ -87,15 +182,15 @@ function drawNode(node: UIObject, focused: boolean, cursorBlinkState: boolean): 
           term.setTextColor(textColor ?? colors.white);
           term.setBackgroundColor(bgColor ?? colors.gray);
         }
-        
+
         term.setCursorPos(x, y);
         term.write(`[${text}]`);
         break;
       }
-      
+
       case "input": {
         const type = node.props.type as string | undefined;
-        
+
         if (type === "checkbox") {
           // Draw checkbox
           let isChecked = false;
@@ -103,7 +198,7 @@ function drawNode(node: UIObject, focused: boolean, cursorBlinkState: boolean): 
           if (typeof checkedProp === "function") {
             isChecked = (checkedProp as Accessor<boolean>)();
           }
-          
+
           if (focused) {
             term.setTextColor(textColor ?? colors.black);
             term.setBackgroundColor(bgColor ?? colors.white);
@@ -111,7 +206,7 @@ function drawNode(node: UIObject, focused: boolean, cursorBlinkState: boolean): 
             term.setTextColor(textColor ?? colors.white);
             term.setBackgroundColor(bgColor ?? colors.black);
           }
-          
+
           term.setCursorPos(x, y);
           term.write(isChecked ? "[X]" : "[ ]");
         } else {
@@ -189,14 +284,21 @@ function drawNode(node: UIObject, focused: boolean, cursorBlinkState: boolean): 
         }
         break;
       }
-      
+
       case "div":
       case "form":
       case "for":
-      case "show": {
+      case "show":
+      case "switch":
+      case "match": {
         // Container elements may have background colors
         if (bgColor !== undefined && node.layout !== undefined) {
-          const { x: divX, y: divY, width: divWidth, height: divHeight } = node.layout;
+          const {
+            x: divX,
+            y: divY,
+            width: divWidth,
+            height: divHeight,
+          } = node.layout;
           term.setBackgroundColor(bgColor);
           // Fill the background area
           for (let row = 0; row < divHeight; row++) {
@@ -206,14 +308,30 @@ function drawNode(node: UIObject, focused: boolean, cursorBlinkState: boolean): 
         }
         break;
       }
-      
+
+      case "scroll-container": {
+        // Draw the scroll container background
+        if (bgColor !== undefined) {
+          term.setBackgroundColor(bgColor);
+          for (let row = 0; row < height; row++) {
+            term.setCursorPos(x, y + row);
+            term.write(string.rep(" ", width));
+          }
+        }
+
+        // Draw scrollbar after rendering children
+        // (This will be called after children are rendered)
+        break;
+      }
+
       case "fragment": {
         // Fragment with text content
         if (node.textContent !== undefined) {
-          const text = typeof node.textContent === "function" 
-            ? (node.textContent)() 
-            : node.textContent;
-          
+          const text =
+            typeof node.textContent === "function"
+              ? node.textContent()
+              : node.textContent;
+
           term.setTextColor(textColor ?? colors.white);
           term.setBackgroundColor(bgColor ?? colors.black);
           term.setCursorPos(x, y);
@@ -230,19 +348,34 @@ function drawNode(node: UIObject, focused: boolean, cursorBlinkState: boolean): 
 
 /**
  * Recursively render a UI tree
- * 
+ *
  * @param node - The root node to render
  * @param focusedNode - The currently focused node (if any)
  * @param cursorBlinkState - Whether the cursor should be visible (for blinking)
  */
-export function render(node: UIObject, focusedNode?: UIObject, cursorBlinkState = false): void {
+export function render(
+  node: UIObject,
+  focusedNode?: UIObject,
+  cursorBlinkState = false,
+): void {
   // Draw this node
   const isFocused = node === focusedNode;
   drawNode(node, isFocused, cursorBlinkState);
-  
-  // Recursively draw children
-  for (const child of node.children) {
-    render(child, focusedNode, cursorBlinkState);
+
+  // For scroll containers, set up clipping region before rendering children
+  if (isScrollContainer(node) && node.layout && node.scrollProps) {
+    // Recursively draw children (they will be clipped by visibility checks)
+    for (const child of node.children) {
+      render(child, focusedNode, cursorBlinkState);
+    }
+
+    // Draw scrollbar after children
+    drawScrollbar(node);
+  } else {
+    // Recursively draw children normally
+    for (const child of node.children) {
+      render(child, focusedNode, cursorBlinkState);
+    }
   }
 }
 

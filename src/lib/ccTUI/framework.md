@@ -136,6 +136,37 @@ render(App);
     - `fallback?: UIObject`: 当 `when` 返回 `false` 时要渲染的组件。
   - `child`: 当 `when` 返回 `true` 时要渲染的组件。
 
+### `<Switch>` and `<Match>`
+
+For more complex conditional logic involving multiple branches (like an `if/else if/else` chain), you can use the `<Switch>` and `<Match>` components. `<Switch>` evaluates its `<Match>` children in order and renders the first one whose `when` prop evaluates to a truthy value.
+
+An optional `fallback` prop on the `<Switch>` component will be rendered if none of the `<Match>` conditions are met.
+
+**Example:**
+
+```typescript
+import { createSignal } from 'cc-tui';
+import { Switch, Match } from 'cc-tui';
+
+function TrafficLight() {
+  const [color, setColor] = createSignal('red');
+
+  return (
+    <Switch fallback={<span>Signal is broken</span>}>
+      <Match when={color() === 'red'}>
+        <p style={{ color: 'red' }}>Stop</p>
+      </Match>
+      <Match when={color() === 'yellow'}>
+        <p style={{ color: 'yellow' }}>Slow Down</p>
+      </Match>
+      <Match when={color() === 'green'}>
+        <p style={{ color: 'green' }}>Go</p>
+      </Match>
+    </Switch>
+  );
+}
+```
+
 ---
 
 ## 3. 布局系统 (Flexbox)
@@ -169,6 +200,50 @@ render(App);
 #### 可用颜色
 
 颜色名称直接映射自 `tweaked.cc` 的 `colors` API: `white`, `orange`, `magenta`, `lightBlue`, `yellow`, `lime`, `pink`, `gray`, `lightGray`, `cyan`, `purple`, `blue`, `brown`, `green`, `red`, `black`.
+
+### Sizing
+
+#### Width
+
+Control the width of an element using the `w` property in the `style` object.
+
+-   `w: <number>`: Sets a fixed width in characters.
+-   `w: "full"`: Sets the width to 100% of its parent's content area.
+-   `w: "screen"`: Sets the width to the full width of the terminal screen.
+
+**Examples:**
+
+```typescript
+// A box with a fixed width of 20 characters
+<Box style={{ w: 20, border: 'single' }}>Fixed Width</Box>
+
+// A box that fills its parent's width
+<Box style={{ w: 'full', border: 'single' }}>Full Width</Box>
+
+// A box that spans the entire screen width
+<Box style={{ w: 'screen', border: 'single' }}>Screen Width</Box>
+```
+
+#### Height
+
+Control the height of an element using the `h` property in the `style` object.
+
+-   `h: <number>`: Sets a fixed height in characters.
+-   `h: "full"`: Sets the height to 100% of its parent's content area.
+-   `h: "screen"`: Sets the height to the full height of the terminal screen.
+
+**Examples:**
+
+```typescript
+// A box with a fixed height of 5 characters
+<Box style={{ h: 5, border: 'single' }}>Fixed Height</Box>
+
+// A box that fills its parent's height
+<Box style={{ h: 'full', border: 'single' }}>Full Height</Box>
+
+// A box that spans the entire screen height
+<Box style={{ h: 'screen', border: 'single' }}>Screen Height</Box>
+```
 
 ---
 
@@ -367,4 +442,6 @@ pnpm dlx eslint src/**/*.ts
 
 # OR
 just lint
-```
+`
+
+为ccTUI添加滚动支持，当内容放不下的时候可以使鼠标滚轮滚动查看更多内容，最好能够实现滚动条。
