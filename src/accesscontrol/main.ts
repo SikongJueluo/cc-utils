@@ -23,26 +23,56 @@ const chatBox = peripheralManager.findByNameRequired("chatBox");
 let inRangePlayers: string[] = [];
 let watchPlayersInfo: { name: string; hasNoticeTimes: number }[] = [];
 
+interface ParseParams {
+  name?: string;
+  group?: string;
+  info?: PlayerInfo;
+}
+
 function safeParseTextComponent(
   component: MinecraftTextComponent,
-  playerName: string,
-  groupName?: string,
+  params?: ParseParams,
 ): string {
   if (component.text == undefined) {
     component.text = "Wrong text, please contanct with admin";
   } else if (component.text.includes("%")) {
-    component.text = component.text.replace("%playerName%", playerName);
-    if (groupName != undefined)
-      component.text = component.text.replace("%groupName%", groupName);
+    component.text = component.text.replace(
+      "%playerName%",
+      params?.name ?? "UnknowPlayer",
+    );
+    component.text = component.text.replace(
+      "%groupName%",
+      params?.group ?? "UnknowGroup",
+    );
+    component.text = component.text.replace(
+      "%playerPosX%",
+      params?.info?.x.toString() ?? "UnknowPosX",
+    );
+    component.text = component.text.replace(
+      "%playerPosY%",
+      params?.info?.y.toString() ?? "UnknowPosY",
+    );
+    component.text = component.text.replace(
+      "%playerPosZ%",
+      params?.info?.z.toString() ?? "UnknowPosZ",
+    );
   }
   return textutils.serialiseJSON(component);
 }
 
-function sendToast(toastConfig: ToastConfig, targetPlayer: string) {
+function sendToast(
+  toastConfig: ToastConfig,
+  targetPlayer: string,
+  params: ParseParams,
+) {
   return chatBox.sendFormattedToastToPlayer(
-    textutils.serialiseJSON(toastConfig.msg ?? config.welcomeToastConfig.msg),
-    textutils.serialiseJSON(
+    safeParseTextComponent(
+      toastConfig.msg ?? config.welcomeToastConfig.msg,
+      params,
+    ),
+    safeParseTextComponent(
       toastConfig.title ?? config.welcomeToastConfig.title,
+      params,
     ),
     targetPlayer,
     toastConfig.prefix ?? config.welcomeToastConfig.prefix,
@@ -62,19 +92,12 @@ function sendNotice(player: string, playerInfo?: PlayerInfo) {
       .flat(),
   );
 
-  const toastConfig: ToastConfig = {
-    title: {
-      text: "Notice",
-      color: "red",
-    },
-    msg: {
-      text: `Unfamiliar Player ${player} appeared at\n Position ${playerInfo?.x}, ${playerInfo?.y}, ${playerInfo?.z}`,
-      color: "red",
-    },
-  };
   for (const targetPlayer of noticeTargetPlayers) {
     if (!onlinePlayers.includes(targetPlayer)) continue;
-    sendToast(toastConfig, targetPlayer);
+    sendToast(config.noticeToastConfig, targetPlayer, {
+      name: player,
+      info: playerInfo,
+    });
   }
 }
 
@@ -82,9 +105,9 @@ function sendWarn(player: string) {
   const warnMsg = `Not Allowed Player ${player} Break in Home `;
   log.warn(warnMsg);
 
-  sendToast(config.warnToastConfig, player);
+  sendToast(config.warnToastConfig, player, { name: player });
   chatBox.sendFormattedMessageToPlayer(
-    safeParseTextComponent(config.warnToastConfig.msg, player),
+    safeParseTextComponent(config.warnToastConfig.msg, { name: player }),
     player,
     "AccessControl",
     "[]",

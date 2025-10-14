@@ -9,7 +9,6 @@ build-autocraft:
 
 build-accesscontrol:
     pnpm tstl -p ./tsconfig.accesscontrol.json
-    cp ./src/accesscontrol/access.config.json ./build/
 
 build-test:
     pnpm tstl -p ./tsconfig.test.json

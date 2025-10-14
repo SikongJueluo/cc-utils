@@ -75,12 +75,12 @@ const defaultConfig: AccessConfig = {
   },
   noticeToastConfig: {
     title: {
-      text: "Welcome",
-      color: "green",
+      text: "Notice",
+      color: "red",
     },
     msg: {
-      text: "Hello User %playerName%",
-      color: "green",
+      text: "Unfamiliar player %playerName% appeared at\n Position %PlayerPosX%, %PlayerPosY%, %PlayerPosZ%",
+      color: "red",
     },
     prefix: "Taohuayuan",
     brackets: "[]",
@@ -105,12 +105,16 @@ function loadConfig(filepath: string): AccessConfig {
   const [fp] = io.open(filepath, "r");
   if (fp == undefined) {
     print("Failed to open config file " + filepath);
+    print("Use default config");
+    saveConfig(defaultConfig, filepath);
     return defaultConfig;
   }
 
   const configJson = fp.read("*a");
   if (configJson == undefined) {
     print("Failed to read config file");
+    print("Use default config");
+    saveConfig(defaultConfig, filepath);
     return defaultConfig;
   }
 
