@@ -3,6 +3,7 @@
  * A text-based user interface for configuring access control settings
  */
 
+import { context } from "@/lib/ccTUI/context";
 import {
   createSignal,
   createStore,
@@ -46,8 +47,11 @@ interface ErrorState {
  * Main TUI Application Component
  */
 const AccessControlTUI = () => {
+  // Load configuration on initialization
+  const configFilepath = `${shell.dir()}/access.config.json`;
+  const loadedConfig = loadConfig(configFilepath);
   // Configuration state
-  const [config, setConfig] = createStore<AccessConfig>({} as AccessConfig);
+  const [config, setConfig] = createStore<AccessConfig>(loadedConfig);
 
   // UI state
   const [currentTab, setCurrentTab] = createSignal<TabIndex>(TABS.BASIC);
@@ -59,11 +63,6 @@ const AccessControlTUI = () => {
 
   // New user input for group management
   const [newUserName, setNewUserName] = createSignal("");
-
-  // Load configuration on initialization
-  const configFilepath = `${shell.dir()}/access.config.json`;
-  const loadedConfig = loadConfig(configFilepath);
-  setConfig(() => loadedConfig);
 
   // Tab navigation functions
   const tabNames = ["Basic", "Groups", "Welcome", "Warn", "Notice"];
@@ -165,6 +164,9 @@ const AccessControlTUI = () => {
       }
 
       // Save configuration
+      context.logger?.debug(
+        `Configuration : ${textutils.serialise(currentConfig, { allow_repetitions: true })}`,
+      );
       saveConfig(currentConfig, configFilepath);
       showError("Configuration saved successfully!");
     } catch (error) {

@@ -1,4 +1,4 @@
-import * as dkjson from "@sikongjueluo/dkjson-types";
+// import * as dkjson from "@sikongjueluo/dkjson-types";
 
 interface ToastConfig {
   title: MinecraftTextComponent;
@@ -131,9 +131,12 @@ function loadConfig(filepath: string): AccessConfig {
 }
 
 function saveConfig(config: AccessConfig, filepath: string) {
-  const configJson = dkjson.encode(config, { indent: true }) as string;
+  // const configJson = dkjson.encode(config, { indent: true }) as string;
   // Not use external lib
-  // const configJson = textutils.serializeJSON(config, { unicode_strings: true });
+  const configJson = textutils.serializeJSON(config, {
+    allow_repetitions: true,
+    unicode_strings: true,
+  });
   if (configJson == undefined) {
     print("Failed to save config");
   }
