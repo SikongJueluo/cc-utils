@@ -79,7 +79,7 @@ const defaultConfig: AccessConfig = {
       color: "red",
     },
     msg: {
-      text: "Unfamiliar player %playerName% appeared at\n Position %PlayerPosX%, %PlayerPosY%, %PlayerPosZ%",
+      text: "Unfamiliar player %playerName% appeared at Position %playerPosX%, %playerPosY%, %playerPosZ%",
       color: "red",
     },
     prefix: "Taohuayuan",

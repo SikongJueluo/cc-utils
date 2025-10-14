@@ -8,13 +8,14 @@ const DEBUG = false;
 const args = [...$vararg];
 
 // Init Log
-const log = new CCLog("accesscontrol.log", true, DAY);
+const logger = new CCLog("accesscontrol.log", true, DAY);
 
 // Load Config
 const configFilepath = `${shell.dir()}/access.config.json`;
 const config = loadConfig(configFilepath);
-log.info("Load config successfully!");
-if (DEBUG) log.debug(textutils.serialise(config, { allow_repetitions: true }));
+logger.info("Load config successfully!");
+if (DEBUG)
+  logger.debug(textutils.serialise(config, { allow_repetitions: true }));
 const groupNames = config.usersGroups.map((value) => value.groupName);
 let noticeTargetPlayers: string[];
 const playerDetector = peripheralManager.findByNameRequired("playerDetector");
@@ -103,7 +104,7 @@ function sendNotice(player: string, playerInfo?: PlayerInfo) {
 
 function sendWarn(player: string) {
   const warnMsg = `Not Allowed Player ${player} Break in Home `;
-  log.warn(warnMsg);
+  logger.warn(warnMsg);
 
   sendToast(config.warnToastConfig, player, { name: player });
   chatBox.sendFormattedMessageToPlayer(
@@ -133,7 +134,7 @@ function watchLoop() {
         if (config.isWarn) sendWarn(player.name);
 
         // Record
-        log.warn(
+        logger.warn(
           `${player.name} appear at ${playerInfo?.x}, ${playerInfo?.y}, ${playerInfo?.z}`,
         );
       } else {
@@ -141,6 +142,7 @@ function watchLoop() {
         watchPlayersInfo = watchPlayersInfo.filter(
           (value) => value.name != player.name,
         );
+        logger.info(`${player.name} has left the range`);
       }
     }
 
@@ -153,14 +155,14 @@ function mainLoop() {
     const players = playerDetector.getPlayersInRange(config.detectRange);
     if (DEBUG) {
       const playersList = "[ " + players.join(",") + " ]";
-      log.debug(`Detected ${players.length} players: ${playersList}`);
+      logger.debug(`Detected ${players.length} players: ${playersList}`);
     }
 
     for (const player of players) {
       if (inRangePlayers.includes(player)) continue;
 
       if (config.adminGroupConfig.groupUsers.includes(player)) {
-        log.info(`Admin ${player} appear`);
+        logger.info(`Admin ${player} appear`);
         continue;
       }
 
@@ -177,7 +179,7 @@ function mainLoop() {
         if (!userGroupConfig.groupUsers.includes(player)) continue;
 
         groupConfig = userGroupConfig;
-        log.info(
+        logger.info(
           `${groupConfig.groupName} ${player} appear at ${playerInfo?.x}, ${playerInfo?.y}, ${playerInfo?.z}`,
         );
 
@@ -185,7 +187,7 @@ function mainLoop() {
       }
       if (groupConfig.isAllowed) continue;
 
-      log.warn(
+      logger.warn(
         `${groupConfig.groupName} ${player} appear at ${playerInfo?.x}, ${playerInfo?.y}, ${playerInfo?.z}`,
       );
       if (config.isWarn) sendWarn(player);
@@ -201,26 +203,29 @@ function keyboardLoop() {
   while (true) {
     const [eventType, key] = os.pullEvent("key");
     if (eventType === "key" && key === keys.c) {
-      log.info("Launching Access Control TUI...");
+      logger.info("Launching Access Control TUI...");
       try {
+        logger.setInTerminal(false);
         launchAccessControlTUI();
-        log.info("TUI closed, resuming normal operation");
+        logger.info("TUI closed, resuming normal operation");
       } catch (error) {
-        log.error(`TUI error: ${textutils.serialise(error as object)}`);
+        logger.error(`TUI error: ${textutils.serialise(error as object)}`);
+      } finally {
+        logger.setInTerminal(true);
       }
     }
   }
 }
 
 function main(args: string[]) {
-  log.info("Starting access control system, get args: " + args.join(", "));
+  logger.info("Starting access control system, get args: " + args.join(", "));
   if (args.length == 1) {
     if (args[0] == "start") {
       // 创建CLI处理器
       const cli = createAccessControlCLI(
         config,
         configFilepath,
-        log,
+        logger,
         chatBox,
         groupNames,
       );
@@ -244,12 +249,12 @@ function main(args: string[]) {
       );
       return;
     } else if (args[0] == "config") {
-      log.info("Launching Access Control TUI...");
-      log.setInTerminal(false);
+      logger.info("Launching Access Control TUI...");
+      logger.setInTerminal(false);
       try {
         launchAccessControlTUI();
       } catch (error) {
-        log.error(`TUI error: ${textutils.serialise(error as object)}`);
+        logger.error(`TUI error: ${textutils.serialise(error as object)}`);
       }
       return;
     }
@@ -263,7 +268,7 @@ function main(args: string[]) {
 try {
   main(args);
 } catch (error: unknown) {
-  log.error(textutils.serialise(error as object));
+  logger.error(textutils.serialise(error as object));
 } finally {
-  log.close();
+  logger.close();
 }
