@@ -3,7 +3,9 @@
  * Represents a node in the UI tree
  */
 
-import { Accessor } from "./reactivity";
+import { ButtonProps, DivProps, InputProps, LabelProps } from "./components";
+import { Accessor, Setter } from "./reactivity";
+import { ScrollContainerProps } from "./scrollContainer";
 
 /**
  * Layout properties for flexbox layout
@@ -34,7 +36,7 @@ export interface StyleProps {
 /**
  * Scroll properties for scroll containers
  */
-export interface ScrollProps {
+export interface ScrollProps extends BaseProps {
   /** Current horizontal scroll position */
   scrollX: number;
   /** Current vertical scroll position */
@@ -69,6 +71,9 @@ export interface ComputedLayout {
 export interface BaseProps {
   /** CSS-like class names for layout (e.g., "flex flex-col") */
   class?: string;
+  width?: number;
+  height?: number;
+  onFocusChanged?: Setter<boolean> | ((value: boolean) => void);
 }
 
 /**
@@ -90,6 +95,14 @@ export type UIObjectType =
   | "fragment"
   | "scroll-container";
 
+export type UIObjectProps =
+  | DivProps
+  | LabelProps
+  | InputProps
+  | ButtonProps
+  | ScrollProps
+  | ScrollContainerProps;
+
 /**
  * UIObject represents a node in the UI tree
  * It can be a component, text, or a control flow element
@@ -99,7 +112,7 @@ export class UIObject {
   type: UIObjectType;
 
   /** Props passed to the component */
-  props: Record<string, unknown>;
+  props: UIObjectProps;
 
   /** Children UI objects */
   children: UIObject[];
@@ -136,7 +149,7 @@ export class UIObject {
 
   constructor(
     type: UIObjectType,
-    props: Record<string, unknown> = {},
+    props: UIObjectProps = {},
     children: UIObject[] = [],
   ) {
     this.type = type;
@@ -155,7 +168,7 @@ export class UIObject {
     this.extractHandlers();
 
     // Initialize cursor position for text inputs
-    if (type === "input" && props.type !== "checkbox") {
+    if (type === "input" && (props as InputProps).type !== "checkbox") {
       this.cursorPos = 0;
     }
 
@@ -168,9 +181,9 @@ export class UIObject {
         maxScrollY: 0,
         contentWidth: 0,
         contentHeight: 0,
-        showScrollbar: props.showScrollbar !== false,
-        viewportWidth: (props.width as number) ?? 10,
-        viewportHeight: (props.height as number) ?? 10,
+        showScrollbar: (props as ScrollProps).showScrollbar !== false,
+        viewportWidth: props.width ?? 10,
+        viewportHeight: props.height ?? 10,
       };
     }
   }
@@ -208,7 +221,7 @@ export class UIObject {
    * Parse CSS-like class string into layout and style properties
    */
   private parseClassNames(): void {
-    const className = this.props.class as string | undefined;
+    const className = this.props.class;
     if (className === undefined) return;
 
     const classes = className.split(" ").filter((c) => c.length > 0);

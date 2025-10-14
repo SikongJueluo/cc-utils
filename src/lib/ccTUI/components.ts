@@ -12,7 +12,7 @@ import { concatSentence } from "../common";
 /**
  * Props for div component
  */
-export type DivProps = BaseProps & Record<string, unknown>;
+export type DivProps = BaseProps;
 
 /**
  * Props for label component
@@ -20,7 +20,7 @@ export type DivProps = BaseProps & Record<string, unknown>;
 export type LabelProps = BaseProps & {
   /** Whether to automatically wrap long text. Defaults to false. */
   wordWrap?: boolean;
-} & Record<string, unknown>;
+};
 
 /**
  * Props for button component
@@ -28,7 +28,7 @@ export type LabelProps = BaseProps & {
 export type ButtonProps = BaseProps & {
   /** Click handler */
   onClick?: () => void;
-} & Record<string, unknown>;
+};
 
 /**
  * Props for input component
@@ -46,7 +46,7 @@ export type InputProps = BaseProps & {
   onChange?: Setter<boolean> | ((checked: boolean) => void);
   /** Placeholder text */
   placeholder?: string;
-} & Record<string, unknown>;
+};
 
 /**
  * Props for form component
@@ -54,7 +54,7 @@ export type InputProps = BaseProps & {
 export type FormProps = BaseProps & {
   /** Submit handler */
   onSubmit?: () => void;
-} & Record<string, unknown>;
+};
 
 /**
  * Generic container component for layout

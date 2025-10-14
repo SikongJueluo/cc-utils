@@ -31,7 +31,10 @@ const Counter = () => {
     div(
       { class: "flex flex-row" },
       button({ onClick: () => setCount(count() - 1), class: "text-red" }, "-"),
-      button({ onClick: () => setCount(count() + 1), class: "text-green" }, "+"),
+      button(
+        { onClick: () => setCount(count() + 1), class: "text-green" },
+        "+",
+      ),
     ),
   );
 };
@@ -81,10 +84,10 @@ const TodosApp = () => {
           },
         }),
         label(
-          { 
-            class: todo.completed ? "ml-1 text-gray" : "ml-1 text-white"
-          }, 
-          () => todo.title
+          {
+            class: todo.completed ? "ml-1 text-gray" : "ml-1 text-white",
+          },
+          () => todo.title,
         ),
         button(
           {
@@ -308,7 +311,7 @@ const App = () => {
       {
         when: () => tabIndex() === 0,
         fallback: Show(
-          { 
+          {
             when: () => tabIndex() === 1,
             fallback: Show(
               {
@@ -318,13 +321,13 @@ const App = () => {
                     when: () => tabIndex() === 3,
                     fallback: MultiScrollExample(),
                   },
-                  StaticScrollExample()
-                )
+                  StaticScrollExample(),
+                ),
               },
-              SimpleScrollExample()
-            )
-          }, 
-          TodosApp()
+              SimpleScrollExample(),
+            ),
+          },
+          TodosApp(),
         ),
       },
       Counter(),

@@ -3,6 +3,7 @@
  * Calculates positions and sizes for UI elements based on flexbox rules
  */
 
+import { InputProps } from "./components";
 import { UIObject } from "./UIObject";
 
 /**
@@ -109,7 +110,7 @@ function measureNode(
     }
 
     case "input": {
-      const type = node.props.type as string | undefined;
+      const type = (node.props as InputProps).type as string | undefined;
       if (type === "checkbox") {
         const naturalWidth = 3; // [X] or [ ]
         const naturalHeight = 1;
@@ -119,7 +120,7 @@ function measureNode(
         };
       }
       // Text input - use a default width or from props
-      const defaultWidth = (node.props.width as number | undefined) ?? 20;
+      const defaultWidth = node.props.width ?? 20;
       const naturalHeight = 1;
       return {
         width: measuredWidth ?? defaultWidth,

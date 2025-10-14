@@ -7,6 +7,8 @@ import { calculateLayout } from "./layout";
 import { render as renderTree, clearScreen } from "./renderer";
 import { CCLog, HOUR } from "../ccLog";
 import { setLogger } from "./context";
+import { InputProps } from "./components";
+import { Setter } from "./reactivity";
 
 /**
  * Main application class
@@ -145,7 +147,7 @@ export class Application {
         if (
           this.focusedNode !== undefined &&
           this.focusedNode.type === "input" &&
-          this.focusedNode.props.type !== "checkbox"
+          (this.focusedNode.props as InputProps).type !== "checkbox"
         ) {
           this.needsRender = true;
         }
@@ -213,11 +215,13 @@ export class Application {
           this.needsRender = true;
         }
       } else if (this.focusedNode.type === "input") {
-        const type = this.focusedNode.props.type as string | undefined;
+        const type = (this.focusedNode.props as InputProps).type as
+          | string
+          | undefined;
         if (type === "checkbox") {
           // Toggle checkbox
-          const onChangeProp = this.focusedNode.props.onChange;
-          const checkedProp = this.focusedNode.props.checked;
+          const onChangeProp = (this.focusedNode.props as InputProps).onChange;
+          const checkedProp = (this.focusedNode.props as InputProps).checked;
 
           if (
             typeof onChangeProp === "function" &&
@@ -234,7 +238,9 @@ export class Application {
       this.focusedNode.type === "input"
     ) {
       // Handle text input key events
-      const type = this.focusedNode.props.type as string | undefined;
+      const type = (this.focusedNode.props as InputProps).type as
+        | string
+        | undefined;
       if (type !== "checkbox") {
         this.handleTextInputKey(key);
       }
@@ -247,8 +253,8 @@ export class Application {
   private handleTextInputKey(key: number): void {
     if (this.focusedNode === undefined) return;
 
-    const valueProp = this.focusedNode.props.value;
-    const onInputProp = this.focusedNode.props.onInput;
+    const valueProp = (this.focusedNode.props as InputProps).value;
+    const onInputProp = (this.focusedNode.props as InputProps).onInput;
 
     if (typeof valueProp !== "function" || typeof onInputProp !== "function") {
       return;
@@ -292,11 +298,11 @@ export class Application {
    */
   private handleCharEvent(char: string): void {
     if (this.focusedNode !== undefined && this.focusedNode.type === "input") {
-      const type = this.focusedNode.props.type as string | undefined;
+      const type = (this.focusedNode.props as InputProps).type;
       if (type !== "checkbox") {
         // Insert character at cursor position
-        const onInputProp = this.focusedNode.props.onInput;
-        const valueProp = this.focusedNode.props.value;
+        const onInputProp = (this.focusedNode.props as InputProps).onInput;
+        const valueProp = (this.focusedNode.props as InputProps).value;
 
         if (
           typeof onInputProp === "function" &&
@@ -331,11 +337,26 @@ export class Application {
         string.format("handleMouseClick: Found node of type %s.", clicked.type),
       );
       // Set focus
+      if (
+        this.focusedNode !== undefined &&
+        typeof this.focusedNode.props.onFocusChanged === "function"
+      ) {
+        const onFocusChanged = this.focusedNode.props
+          .onFocusChanged as Setter<boolean>;
+        onFocusChanged(false);
+      }
       this.focusedNode = clicked;
+      if (typeof clicked.props.onFocusChanged === "function") {
+        const onFocusChanged = clicked.props.onFocusChanged as Setter<boolean>;
+        onFocusChanged(true);
+      }
 
       // Initialize cursor position for text inputs on focus
-      if (clicked.type === "input" && clicked.props.type !== "checkbox") {
-        const valueProp = clicked.props.value;
+      if (
+        clicked.type === "input" &&
+        (clicked.props as InputProps).type !== "checkbox"
+      ) {
+        const valueProp = (clicked.props as InputProps).value;
         if (typeof valueProp === "function") {
           const currentValue = (valueProp as () => string)();
           clicked.cursorPos = currentValue.length;
@@ -354,10 +375,10 @@ export class Application {
           this.needsRender = true;
         }
       } else if (clicked.type === "input") {
-        const type = clicked.props.type as string | undefined;
+        const type = (clicked.props as InputProps).type as string | undefined;
         if (type === "checkbox") {
-          const onChangeProp = clicked.props.onChange;
-          const checkedProp = clicked.props.checked;
+          const onChangeProp = (clicked.props as InputProps).onChange;
+          const checkedProp = (clicked.props as InputProps).checked;
 
           if (
             typeof onChangeProp === "function" &&
@@ -424,6 +445,14 @@ export class Application {
 
     const interactive = this.collectInteractive(this.root);
 
+    if (
+      this.focusedNode !== undefined &&
+      typeof this.focusedNode.props.onFocusChanged === "function"
+    ) {
+      const onFocusChanged = this.focusedNode.props
+        .onFocusChanged as Setter<boolean>;
+      onFocusChanged(false);
+    }
     if (interactive.length === 0) {
       this.focusedNode = undefined;
       return;

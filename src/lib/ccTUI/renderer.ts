@@ -3,7 +3,7 @@
  */
 
 import { UIObject } from "./UIObject";
-import { Accessor } from "./reactivity";
+import { InputProps } from "./components";
 import { isScrollContainer } from "./scrollContainer";
 
 /**
@@ -189,14 +189,14 @@ function drawNode(
       }
 
       case "input": {
-        const type = node.props.type as string | undefined;
+        const type = (node.props as InputProps).type as string | undefined;
 
         if (type === "checkbox") {
           // Draw checkbox
           let isChecked = false;
-          const checkedProp = node.props.checked;
+          const checkedProp = (node.props as InputProps).checked;
           if (typeof checkedProp === "function") {
-            isChecked = (checkedProp as Accessor<boolean>)();
+            isChecked = checkedProp();
           }
 
           if (focused) {
@@ -212,12 +212,11 @@ function drawNode(
         } else {
           // Draw text input
           let displayText = "";
-          const valueProp = node.props.value;
+          const valueProp = (node.props as InputProps).value;
           if (typeof valueProp === "function") {
-            displayText = (valueProp as Accessor<string>)();
+            displayText = valueProp();
           }
-
-          const placeholder = node.props.placeholder as string | undefined;
+          const placeholder = (node.props as InputProps).placeholder;
           const cursorPos = node.cursorPos ?? 0;
           let currentTextColor = textColor;
           let showPlaceholder = false;

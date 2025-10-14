@@ -243,6 +243,18 @@ const AccessControlTUI = () => {
   /**
    * Basic Configuration Tab
    */
+  const [getDetectInterval, setDetectInterval] = createSignal(
+    config().detectInterval.toString(),
+  );
+  const [getWatchInterval, setWatchInterval] = createSignal(
+    config().watchInterval.toString(),
+  );
+  const [getNoticeTimes, setNoticeTimes] = createSignal(
+    config().noticeTimes.toString(),
+  );
+  const [getDetectRange, setDetectRange] = createSignal(
+    config().detectRange.toString(),
+  );
   const BasicTab = () => {
     return div(
       { class: "flex flex-col" },
@@ -251,10 +263,12 @@ const AccessControlTUI = () => {
         label({}, "Detect Interval (ms):"),
         input({
           type: "text",
-          value: () => config().detectInterval?.toString() ?? "",
-          onInput: (value) => {
-            const num = validateNumber(value);
+          value: () => getDetectInterval(),
+          onInput: (value) => setDetectInterval(value),
+          onFocusChanged: () => {
+            const num = validateNumber(getDetectInterval());
             if (num !== null) setConfig("detectInterval", num);
+            else setDetectInterval(config().detectInterval.toString());
           },
         }),
       ),
@@ -263,10 +277,12 @@ const AccessControlTUI = () => {
         label({}, "Watch Interval (ms):"),
         input({
           type: "text",
-          value: () => config().watchInterval?.toString() ?? "",
-          onInput: (value) => {
-            const num = validateNumber(value);
+          value: () => getWatchInterval(),
+          onInput: (value) => setWatchInterval(value),
+          onFocusChanged: () => {
+            const num = validateNumber(getWatchInterval());
             if (num !== null) setConfig("watchInterval", num);
+            else setWatchInterval(config().watchInterval.toString());
           },
         }),
       ),
@@ -275,10 +291,12 @@ const AccessControlTUI = () => {
         label({}, "Notice Times:"),
         input({
           type: "text",
-          value: () => config().noticeTimes?.toString() ?? "",
-          onInput: (value) => {
-            const num = validateNumber(value);
+          value: () => getNoticeTimes(),
+          onInput: (value) => setNoticeTimes(value),
+          onFocusChanged: () => {
+            const num = validateNumber(getNoticeTimes());
             if (num !== null) setConfig("noticeTimes", num);
+            else setNoticeTimes(config().noticeTimes.toString());
           },
         }),
       ),
@@ -287,10 +305,12 @@ const AccessControlTUI = () => {
         label({}, "Detect Range:"),
         input({
           type: "text",
-          value: () => config().detectRange?.toString() ?? "",
-          onInput: (value) => {
-            const num = validateNumber(value);
+          value: () => getDetectRange(),
+          onInput: (value) => setDetectRange(value),
+          onFocusChanged: () => {
+            const num = validateNumber(getDetectRange());
             if (num !== null) setConfig("detectRange", num);
+            else setDetectRange(config().detectRange.toString());
           },
         }),
       ),
@@ -436,6 +456,13 @@ const AccessControlTUI = () => {
   ) => {
     return () => {
       const toastConfig = config()[toastType];
+      const [getTempToastConfig, setTempToastConfig] = createSignal({
+        title: textutils.serialiseJSON(toastConfig.title),
+        msg: textutils.serialiseJSON(toastConfig.msg),
+        prefix: toastConfig.prefix ?? "",
+        brackets: toastConfig.brackets ?? "",
+        bracketColor: toastConfig.bracketColor ?? "",
+      });
 
       return div(
         { class: "flex flex-col w-full" },
@@ -443,20 +470,34 @@ const AccessControlTUI = () => {
         input({
           class: "w-full",
           type: "text",
-          value: () => textutils.serialiseJSON(toastConfig?.title) ?? "",
-          onInput: (value) => {
+          value: () => getTempToastConfig().title,
+          onInput: (value) =>
+            setTempToastConfig({
+              ...getTempToastConfig(),
+              title: value,
+            }),
+          onFocusChanged: () => {
+            const currentToastConfig = config()[toastType];
+
             try {
-              const parsed = textutils.unserialiseJSON(value);
-              if (parsed != undefined && typeof parsed === "object") {
-                const currentConfig = config();
-                const currentToast = currentConfig[toastType];
+              const parsed = textutils.unserialiseJSON(
+                getTempToastConfig().title,
+              ) as MinecraftTextComponent;
+              if (
+                typeof parsed === "object" &&
+                parsed.text !== undefined &&
+                parsed.color !== undefined
+              ) {
                 setConfig(toastType, {
-                  ...currentToast,
-                  title: parsed as MinecraftTextComponent,
+                  ...currentToastConfig,
+                  title: parsed,
                 });
-              }
+              } else throw new Error("Invalid JSON");
             } catch {
-              // Invalid JSON, ignore
+              setTempToastConfig({
+                ...getTempToastConfig(),
+                title: textutils.serialiseJSON(currentToastConfig.title),
+              });
             }
           },
         }),
@@ -465,19 +506,31 @@ const AccessControlTUI = () => {
         input({
           class: "w-full",
           type: "text",
-          value: () => textutils.serialiseJSON(toastConfig?.msg) ?? "",
-          onInput: (value) => {
+          value: () => getTempToastConfig().msg,
+          onInput: (value) =>
+            setTempToastConfig({ ...getTempToastConfig(), msg: value }),
+          onFocusChanged: () => {
+            const currentToastConfig = config()[toastType];
+
             try {
-              const parsed = textutils.unserialiseJSON(value);
-              if (parsed != undefined && typeof parsed === "object") {
-                const currentConfig = config();
-                const currentToast = currentConfig[toastType];
+              const parsed = textutils.unserialiseJSON(
+                getTempToastConfig().msg,
+              ) as MinecraftTextComponent;
+              if (
+                typeof parsed === "object" &&
+                parsed.text !== undefined &&
+                parsed.color !== undefined
+              ) {
                 setConfig(toastType, {
-                  ...currentToast,
-                  msg: parsed as MinecraftTextComponent,
+                  ...currentToastConfig,
+                  msg: parsed,
                 });
-              }
+              } else throw new Error("Invalid JSON");
             } catch {
+              setTempToastConfig({
+                ...getTempToastConfig(),
+                msg: textutils.serialiseJSON(currentToastConfig.msg),
+              });
               // Invalid JSON, ignore
             }
           },
@@ -488,11 +541,15 @@ const AccessControlTUI = () => {
           label({}, "Prefix:"),
           input({
             type: "text",
-            value: () => toastConfig?.prefix ?? "",
-            onInput: (value) => {
-              const currentConfig = config();
-              const currentToast = currentConfig[toastType];
-              setConfig(toastType, { ...currentToast, prefix: value });
+            value: () => getTempToastConfig().prefix,
+            onInput: (value) =>
+              setTempToastConfig({ ...getTempToastConfig(), prefix: value }),
+            onFocusChanged: () => {
+              const currentToastConfig = config()[toastType];
+              setConfig(toastType, {
+                ...currentToastConfig,
+                prefix: getTempToastConfig().prefix,
+              });
             },
           }),
         ),
@@ -502,11 +559,15 @@ const AccessControlTUI = () => {
           label({}, "Brackets:"),
           input({
             type: "text",
-            value: () => toastConfig?.brackets ?? "",
-            onInput: (value) => {
-              const currentConfig = config();
-              const currentToast = currentConfig[toastType];
-              setConfig(toastType, { ...currentToast, brackets: value });
+            value: () => getTempToastConfig().brackets,
+            onInput: (value) =>
+              setTempToastConfig({ ...getTempToastConfig(), brackets: value }),
+            onFocusChanged: () => {
+              const currentToastConfig = config()[toastType];
+              setConfig(toastType, {
+                ...currentToastConfig,
+                brackets: getTempToastConfig().brackets,
+              });
             },
           }),
         ),
@@ -516,11 +577,18 @@ const AccessControlTUI = () => {
           label({}, "Bracket Color:"),
           input({
             type: "text",
-            value: () => toastConfig?.bracketColor ?? "",
-            onInput: (value) => {
-              const currentConfig = config();
-              const currentToast = currentConfig[toastType];
-              setConfig(toastType, { ...currentToast, bracketColor: value });
+            value: () => getTempToastConfig().bracketColor,
+            onInput: (value) =>
+              setTempToastConfig({
+                ...getTempToastConfig(),
+                bracketColor: value,
+              }),
+            onFocusChanged: () => {
+              const currentToastConfig = config()[toastType];
+              setConfig(toastType, {
+                ...currentToastConfig,
+                bracketColor: getTempToastConfig().bracketColor,
+              });
             },
           }),
         ),
