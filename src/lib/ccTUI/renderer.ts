@@ -218,7 +218,7 @@ function drawNode(
           }
 
           const placeholder = node.props.placeholder as string | undefined;
-          const cursorPos = node.cursorPos ?? 0;
+          let cursorPos = node.cursorPos ?? 0;
           let displayText = value;
           let currentTextColor = textColor;
           let showPlaceholder = false;
@@ -245,16 +245,20 @@ function drawNode(
           term.setCursorPos(x + 1, y); // Position cursor for text after padding
 
           const renderWidth = width - 1;
-          let textToRender = displayText;
+          const textToRender = displayText + "   ";
 
-          // Truncate text if it's too long for the padded area
-          if (textToRender.length > renderWidth) {
-            textToRender = textToRender.substring(0, renderWidth);
-          }
+          // Move text if it's too long for the padded area
+          const startDisPos =
+            cursorPos >= renderWidth ? textToRender.length - renderWidth : 0;
+          const stopDisPos = startDisPos + renderWidth;
 
           if (focused && !showPlaceholder && cursorBlinkState) {
             // Draw text with a block cursor by inverting colors at the cursor position
-            for (let i = 0; i < textToRender.length; i++) {
+            for (
+              let i = startDisPos;
+              i < textToRender.length && i < stopDisPos;
+              i++
+            ) {
               const char = textToRender.substring(i, i + 1);
               if (i === cursorPos) {
                 // Invert colors for cursor
@@ -279,7 +283,7 @@ function drawNode(
             }
           } else {
             // Not focused or no cursor, just write the text
-            term.write(textToRender);
+            term.write(textToRender.substring(startDisPos, stopDisPos));
           }
         }
         break;
