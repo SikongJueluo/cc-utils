@@ -4,16 +4,10 @@
  */
 
 import { UIObject, BaseProps, createTextNode } from "./UIObject";
-import {
-  Accessor,
-  createEffect,
-  createMemo,
-  createSignal,
-  Setter,
-  Signal,
-} from "./reactivity";
+import { Accessor, createMemo, Setter, Signal } from "./reactivity";
 import { For } from "./controlFlow";
-import { logger } from "./context";
+import { context } from "./context";
+import { concatSentence } from "../common";
 
 /**
  * Props for div component
@@ -114,6 +108,7 @@ export function div(
  * @returns An array of words and whitespace.
  */
 function splitByWhitespace(text: string): string[] {
+  if (!text) return [];
   const parts: string[] = [];
   let currentWord = "";
   let currentWhitespace = "";
@@ -148,13 +143,16 @@ export function label(
   props: LabelProps,
   text: string | Accessor<string>,
 ): UIObject {
+  context.logger?.debug(`label : ${textutils.serialiseJSON(props)}`);
+  context.logger?.debug(
+    `label text: ${typeof text == "string" ? text : text()}`,
+  );
   if (props.wordWrap === true) {
-    logger?.debug(`label : ${textutils.serialiseJSON(props)}`);
     const p = { ...props };
     delete p.wordWrap;
     const containerProps: DivProps = {
       ...p,
-      class: `${p.class ?? ""} flex flex-row flex-wrap`,
+      class: `${p.class ?? ""} flex flex-col`,
     };
 
     if (typeof text === "string") {
@@ -166,16 +164,18 @@ export function label(
       return node;
     } else {
       // Handle reactive strings (Accessor<string>)
-      const words = createMemo(() => splitByWhitespace(text()));
+      const sentences = createMemo(() => {
+        const words = splitByWhitespace(text());
+        const ret = concatSentence(words, 40);
+        context.logger?.debug(`label words changed : [ ${ret.join(",")} ]`);
+        return ret;
+      });
 
-      const forNode = For(
-        { class: `${p.class ?? ""} flex flex-row flex-wrap`, each: words },
-        (word) => createTextNode(word),
+      const forNode = For({ class: `flex flex-col`, each: sentences }, (word) =>
+        label({ class: p.class }, word),
       );
 
-      const node = new UIObject("div", containerProps, [forNode]);
-      forNode.parent = node;
-      return node;
+      return forNode;
     }
   }
 

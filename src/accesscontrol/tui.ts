@@ -538,9 +538,9 @@ const AccessControlTUI = () => {
     return Show(
       { when: () => errorState().show },
       div(
-        { class: "flex flex-col bg-red " },
+        { class: "flex flex-col" },
         label(
-          { class: "w-25 text-white", wordWrap: true },
+          { class: "w-50 text-white bg-red", wordWrap: true },
           () => errorState().message,
         ),
         button(
