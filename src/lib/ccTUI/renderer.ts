@@ -211,22 +211,21 @@ function drawNode(
           term.write(isChecked ? "[X]" : "[ ]");
         } else {
           // Draw text input
-          let value = "";
+          let displayText = "";
           const valueProp = node.props.value;
           if (typeof valueProp === "function") {
-            value = (valueProp as Accessor<string>)();
+            displayText = (valueProp as Accessor<string>)();
           }
 
           const placeholder = node.props.placeholder as string | undefined;
-          let cursorPos = node.cursorPos ?? 0;
-          let displayText = value;
+          const cursorPos = node.cursorPos ?? 0;
           let currentTextColor = textColor;
           let showPlaceholder = false;
 
           const focusedBgColor = bgColor ?? colors.white;
           const unfocusedBgColor = bgColor ?? colors.black;
 
-          if (value === "" && placeholder !== undefined && !focused) {
+          if (displayText === "" && placeholder !== undefined && !focused) {
             displayText = placeholder;
             showPlaceholder = true;
             currentTextColor = currentTextColor ?? colors.gray;
@@ -245,11 +244,11 @@ function drawNode(
           term.setCursorPos(x + 1, y); // Position cursor for text after padding
 
           const renderWidth = width - 1;
-          const textToRender = displayText + "   ";
+          const textToRender = displayText + " ";
 
           // Move text if it's too long for the padded area
           const startDisPos =
-            cursorPos >= renderWidth ? textToRender.length - renderWidth : 0;
+            cursorPos >= renderWidth ? cursorPos - renderWidth + 1 : 0;
           const stopDisPos = startDisPos + renderWidth;
 
           if (focused && !showPlaceholder && cursorBlinkState) {
