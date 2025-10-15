@@ -3,6 +3,7 @@ import { ToastConfig, UserGroupConfig, loadConfig } from "./config";
 import { createAccessControlCLI } from "./cli";
 import { launchAccessControlTUI } from "./tui";
 import * as peripheralManager from "../lib/PeripheralManager";
+import { deepCopy } from "@/lib/common";
 
 const DEBUG = false;
 const args = [...$vararg];
@@ -12,15 +13,18 @@ const logger = new CCLog("accesscontrol.log", true, DAY);
 
 // Load Config
 const configFilepath = `${shell.dir()}/access.config.json`;
-const config = loadConfig(configFilepath);
+let config = loadConfig(configFilepath);
 logger.info("Load config successfully!");
 if (DEBUG)
   logger.debug(textutils.serialise(config, { allow_repetitions: true }));
 const groupNames = config.usersGroups.map((value) => value.groupName);
-let noticeTargetPlayers: string[];
+
+// Peripheral
 const playerDetector = peripheralManager.findByNameRequired("playerDetector");
 const chatBox = peripheralManager.findByNameRequired("chatBox");
 
+// Global
+let noticeTargetPlayers: string[];
 let inRangePlayers: string[] = [];
 let watchPlayersInfo: { name: string; hasNoticeTimes: number }[] = [];
 
@@ -34,31 +38,33 @@ function safeParseTextComponent(
   component: MinecraftTextComponent,
   params?: ParseParams,
 ): string {
-  if (component.text == undefined) {
-    component.text = "Wrong text, please contanct with admin";
-  } else if (component.text.includes("%")) {
-    component.text = component.text.replace(
+  const newComponent = deepCopy(component);
+
+  if (newComponent.text == undefined) {
+    newComponent.text = "Wrong text, please contanct with admin";
+  } else if (newComponent.text.includes("%")) {
+    newComponent.text = newComponent.text.replace(
       "%playerName%",
       params?.name ?? "UnknowPlayer",
     );
-    component.text = component.text.replace(
+    newComponent.text = newComponent.text.replace(
       "%groupName%",
       params?.group ?? "UnknowGroup",
     );
-    component.text = component.text.replace(
+    newComponent.text = newComponent.text.replace(
       "%playerPosX%",
       params?.info?.x.toString() ?? "UnknowPosX",
     );
-    component.text = component.text.replace(
+    newComponent.text = newComponent.text.replace(
       "%playerPosY%",
       params?.info?.y.toString() ?? "UnknowPosY",
     );
-    component.text = component.text.replace(
+    newComponent.text = newComponent.text.replace(
       "%playerPosZ%",
       params?.info?.z.toString() ?? "UnknowPosZ",
     );
   }
-  return textutils.serialiseJSON(component);
+  return textutils.serialiseJSON(newComponent);
 }
 
 function sendToast(
@@ -120,10 +126,13 @@ function sendWarn(player: string) {
 
 function watchLoop() {
   while (true) {
+    if (DEBUG) {
+      const watchPlayerNames = watchPlayersInfo.flatMap((value) => value.name);
+      logger.debug(`Watch Players [ ${watchPlayerNames.join(", ")} ]`);
+    }
     for (const player of watchPlayersInfo) {
+      const playerInfo = playerDetector.getPlayerPos(player.name);
       if (inRangePlayers.includes(player.name)) {
-        const playerInfo = playerDetector.getPlayerPos(player.name);
-
         // Notice
         if (player.hasNoticeTimes < config.noticeTimes) {
           sendNotice(player.name, playerInfo);
@@ -142,8 +151,11 @@ function watchLoop() {
         watchPlayersInfo = watchPlayersInfo.filter(
           (value) => value.name != player.name,
         );
-        logger.info(`${player.name} has left the range`);
+        logger.info(
+          `${player.name} has left the range at ${playerInfo?.x}, ${playerInfo?.y}, ${playerInfo?.z}`,
+        );
       }
+      os.sleep(3);
     }
 
     os.sleep(config.watchInterval);
@@ -191,7 +203,10 @@ function mainLoop() {
         `${groupConfig.groupName} ${player} appear at ${playerInfo?.x}, ${playerInfo?.y}, ${playerInfo?.z}`,
       );
       if (config.isWarn) sendWarn(player);
-      watchPlayersInfo.push({ name: player, hasNoticeTimes: 0 });
+      watchPlayersInfo = [
+        ...watchPlayersInfo,
+        { name: player, hasNoticeTimes: 0 },
+      ];
     }
 
     inRangePlayers = players;
@@ -212,6 +227,8 @@ function keyboardLoop() {
         logger.error(`TUI error: ${textutils.serialise(error as object)}`);
       } finally {
         logger.setInTerminal(true);
+        config = loadConfig(configFilepath);
+        logger.info("Reload config successfully!");
       }
     }
   }
