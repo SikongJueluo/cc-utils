@@ -1,4 +1,4 @@
-enum LogLevel {
+export enum LogLevel {
   Debug = 0,
   Info = 1,
   Warn = 2,
@@ -12,20 +12,29 @@ export const HOUR = 60 * MINUTE;
 export const DAY = 24 * HOUR;
 export const WEEK = 7 * DAY;
 
+export interface CCLogInitConfig {
+  printTerminal?: boolean;
+  logInterval?: number;
+  outputMinLevel?: LogLevel;
+}
+
 export class CCLog {
   private fp: LuaFile | undefined;
   private filename?: string;
-  private interval: number;
+  private logInterval: number;
+  private printTerminal: boolean;
+  private outputMinLevel: LogLevel;
   private startTime: number;
   private currentTimePeriod: string;
-  private inTerm: boolean;
 
-  constructor(filename?: string, inTerm = true, interval: number = DAY) {
+  constructor(filename?: string, config?: CCLogInitConfig) {
     term.clear();
     term.setCursorPos(1, 1);
 
-    this.interval = interval;
-    this.inTerm = inTerm;
+    this.logInterval = config?.logInterval ?? DAY;
+    this.printTerminal = config?.printTerminal ?? true;
+    this.outputMinLevel = config?.outputMinLevel ?? LogLevel.Debug;
+
     this.startTime = os.time(os.date("*t"));
     this.currentTimePeriod = this.getTimePeriodString(this.startTime);
 
@@ -49,14 +58,14 @@ export class CCLog {
    * For SECOND interval: YYYY-MM-DD-HH-MM-SS
    */
   private getTimePeriodString(time: number): string {
-    const periodStart = Math.floor(time / this.interval) * this.interval;
+    const periodStart = Math.floor(time / this.logInterval) * this.logInterval;
     const d = os.date("*t", periodStart);
 
-    if (this.interval >= DAY) {
+    if (this.logInterval >= DAY) {
       return `${d.year}-${string.format("%02d", d.month)}-${string.format("%02d", d.day)}`;
-    } else if (this.interval >= HOUR) {
+    } else if (this.logInterval >= HOUR) {
       return `${d.year}-${string.format("%02d", d.month)}-${string.format("%02d", d.day)}_${string.format("%02d", d.hour)}`;
-    } else if (this.interval >= MINUTE) {
+    } else if (this.logInterval >= MINUTE) {
       return `${d.year}-${string.format("%02d", d.month)}-${string.format("%02d", d.day)}_${string.format("%02d", d.hour)}-${string.format("%02d", d.min)}`;
     }
     return `${d.year}-${string.format("%02d", d.month)}-${string.format("%02d", d.day)}_${string.format("%02d", d.hour)}-${string.format("%02d", d.min)}-${string.format("%02d", d.sec)}`;
@@ -118,7 +127,7 @@ export class CCLog {
     // Check if we need to rotate the log file
     this.checkAndRotateLogFile();
 
-    if (this.inTerm) {
+    if (this.printTerminal) {
       let originalColor: Color = 0;
       if (color != undefined) {
         originalColor = term.getTextColor();
@@ -138,23 +147,31 @@ export class CCLog {
   }
 
   public debug(msg: string) {
-    this.writeLine(this.getFormatMsg(msg, LogLevel.Debug), colors.gray);
+    if (LogLevel.Debug >= this.outputMinLevel)
+      this.writeLine(this.getFormatMsg(msg, LogLevel.Debug), colors.gray);
   }
 
   public info(msg: string) {
-    this.writeLine(this.getFormatMsg(msg, LogLevel.Info), colors.green);
+    if (LogLevel.Info >= this.outputMinLevel)
+      this.writeLine(this.getFormatMsg(msg, LogLevel.Info), colors.green);
   }
 
   public warn(msg: string) {
-    this.writeLine(this.getFormatMsg(msg, LogLevel.Warn), colors.orange);
+    if (LogLevel.Warn >= this.outputMinLevel)
+      this.writeLine(this.getFormatMsg(msg, LogLevel.Warn), colors.orange);
   }
 
   public error(msg: string) {
-    this.writeLine(this.getFormatMsg(msg, LogLevel.Error), colors.red);
+    if (LogLevel.Error >= this.outputMinLevel)
+      this.writeLine(this.getFormatMsg(msg, LogLevel.Error), colors.red);
   }
 
   public setInTerminal(value: boolean) {
-    this.inTerm = value;
+    this.printTerminal = value;
+  }
+
+  public setLogLevel(value: LogLevel) {
+    this.outputMinLevel = value;
   }
 
   public close() {

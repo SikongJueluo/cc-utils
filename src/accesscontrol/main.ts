@@ -1,23 +1,24 @@
-import { CCLog, DAY } from "@/lib/ccLog";
+import { CCLog, DAY, LogLevel } from "@/lib/ccLog";
 import { ToastConfig, UserGroupConfig, loadConfig } from "./config";
 import { createAccessControlCLI } from "./cli";
 import { launchAccessControlTUI } from "./tui";
 import * as peripheralManager from "../lib/PeripheralManager";
 import { deepCopy } from "@/lib/common";
 
-const DEBUG = false;
 const args = [...$vararg];
 
 // Init Log
-const logger = new CCLog("accesscontrol.log", true, DAY);
+const logger = new CCLog("accesscontrol.log", {
+  printTerminal: true,
+  logInterval: DAY,
+  outputMinLevel: LogLevel.Info,
+});
 
 // Load Config
 const configFilepath = `${shell.dir()}/access.config.json`;
 let config = loadConfig(configFilepath);
 logger.info("Load config successfully!");
-if (DEBUG)
-  logger.debug(textutils.serialise(config, { allow_repetitions: true }));
-const groupNames = config.usersGroups.map((value) => value.groupName);
+logger.debug(textutils.serialise(config, { allow_repetitions: true }));
 
 // Peripheral
 const playerDetector = peripheralManager.findByNameRequired("playerDetector");
@@ -32,6 +33,13 @@ interface ParseParams {
   name?: string;
   group?: string;
   info?: PlayerInfo;
+}
+
+function reloadConfig() {
+  config = loadConfig(configFilepath);
+  inRangePlayers = [];
+  watchPlayersInfo = [];
+  logger.info("Reload config successfully!");
 }
 
 function safeParseTextComponent(
@@ -126,10 +134,8 @@ function sendWarn(player: string) {
 
 function watchLoop() {
   while (true) {
-    if (DEBUG) {
-      const watchPlayerNames = watchPlayersInfo.flatMap((value) => value.name);
-      logger.debug(`Watch Players [ ${watchPlayerNames.join(", ")} ]`);
-    }
+    const watchPlayerNames = watchPlayersInfo.flatMap((value) => value.name);
+    logger.debug(`Watch Players [ ${watchPlayerNames.join(", ")} ]`);
     for (const player of watchPlayersInfo) {
       const playerInfo = playerDetector.getPlayerPos(player.name);
       if (inRangePlayers.includes(player.name)) {
@@ -144,7 +150,7 @@ function watchLoop() {
 
         // Record
         logger.warn(
-          `${player.name} appear at ${playerInfo?.x}, ${playerInfo?.y}, ${playerInfo?.z}`,
+          `Stranger ${player.name} appear at ${playerInfo?.x}, ${playerInfo?.y}, ${playerInfo?.z}`,
         );
       } else {
         // Get rid of player from list
@@ -152,10 +158,10 @@ function watchLoop() {
           (value) => value.name != player.name,
         );
         logger.info(
-          `${player.name} has left the range at ${playerInfo?.x}, ${playerInfo?.y}, ${playerInfo?.z}`,
+          `Stranger ${player.name} has left the range at ${playerInfo?.x}, ${playerInfo?.y}, ${playerInfo?.z}`,
         );
       }
-      os.sleep(3);
+      os.sleep(1);
     }
 
     os.sleep(config.watchInterval);
@@ -165,10 +171,8 @@ function watchLoop() {
 function mainLoop() {
   while (true) {
     const players = playerDetector.getPlayersInRange(config.detectRange);
-    if (DEBUG) {
-      const playersList = "[ " + players.join(",") + " ]";
-      logger.debug(`Detected ${players.length} players: ${playersList}`);
-    }
+    const playersList = "[ " + players.join(",") + " ]";
+    logger.debug(`Detected ${players.length} players: ${playersList}`);
 
     for (const player of players) {
       if (inRangePlayers.includes(player)) continue;
@@ -227,7 +231,7 @@ function keyboardLoop() {
         logger.error(`TUI error: ${textutils.serialise(error as object)}`);
       } finally {
         logger.setInTerminal(true);
-        config = loadConfig(configFilepath);
+        reloadConfig();
         logger.info("Reload config successfully!");
       }
     }
@@ -239,13 +243,13 @@ function main(args: string[]) {
   if (args.length == 1) {
     if (args[0] == "start") {
       // 创建CLI处理器
-      const cli = createAccessControlCLI(
-        config,
-        configFilepath,
-        logger,
-        chatBox,
-        groupNames,
-      );
+      const cli = createAccessControlCLI({
+        config: config,
+        configFilepath: configFilepath,
+        reloadConfig: () => reloadConfig(),
+        log: logger,
+        chatBox: chatBox,
+      });
 
       print(
         "Access Control System started. Press 'c' to open configuration TUI.",

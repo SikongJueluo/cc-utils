@@ -5,7 +5,7 @@
 import { UIObject } from "./UIObject";
 import { calculateLayout } from "./layout";
 import { render as renderTree, clearScreen } from "./renderer";
-import { CCLog, HOUR } from "../ccLog";
+import { CCLog, DAY, LogLevel } from "../ccLog";
 import { setLogger } from "./context";
 import { InputProps } from "./components";
 import { Setter } from "./reactivity";
@@ -30,7 +30,11 @@ export class Application {
     const [width, height] = term.getSize();
     this.termWidth = width;
     this.termHeight = height;
-    this.logger = new CCLog("tui_debug.log", false, HOUR);
+    this.logger = new CCLog("tui_debug.log", {
+      printTerminal: false,
+      logInterval: DAY,
+      outputMinLevel: LogLevel.Info,
+    });
     setLogger(this.logger);
     this.logger.debug("Application constructed.");
   }

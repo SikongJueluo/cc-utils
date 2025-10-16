@@ -22,9 +22,13 @@ interface CLIResult {
 interface CLIContext {
   config: AccessConfig;
   configFilepath: string;
+  reloadConfig: () => void;
   log: CCLog;
-  chatBox: any; // eslint-disable-line @typescript-eslint/no-explicit-any
-  groupNames: string[];
+  chatBox: ChatBoxPeripheral;
+}
+
+function getGroupNames(context: CLIContext) {
+  return context.config.usersGroups.flatMap((value) => value.groupName);
 }
 
 // 基础命令处理器
@@ -43,8 +47,6 @@ class CLICommandProcessor {
     this.registerCommand(new DelCommand());
     this.registerCommand(new ListCommand());
     this.registerCommand(new SetCommand());
-    this.registerCommand(new CreateGroupCommand());
-    this.registerCommand(new RemoveGroupCommand());
     this.registerCommand(new EditCommand());
     this.registerCommand(new ShowConfigCommand());
     this.registerCommand(new HelpCommand());
@@ -73,7 +75,12 @@ class CLICommandProcessor {
       };
     }
 
-    return command.execute(args, executor, this.context);
+    const ret = command.execute(args, executor, this.context);
+    if (ret.success) {
+      this.context.reloadConfig();
+      return ret;
+    }
+    return ret;
   }
 
   private getHelpCommand(): CLICommand {
@@ -82,7 +89,6 @@ class CLICommandProcessor {
 
   public sendResponse(result: CLIResult, executor: string) {
     if (result.message != null && result.message.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access
       this.context.chatBox.sendMessageToPlayer(
         result.message,
         executor,
@@ -125,10 +131,12 @@ class AddCommand implements CLICommand {
       };
     }
 
-    if (!context.groupNames.includes(groupName)) {
+    const groupNames = getGroupNames(context);
+
+    if (!groupNames.includes(groupName)) {
       return {
         success: false,
-        message: `Invalid group: ${groupName}. Available groups: ${context.groupNames.join(", ")}`,
+        message: `Invalid group: ${groupName}. Available groups: ${groupNames.join(", ")}`,
       };
     }
 
@@ -180,10 +188,12 @@ class DelCommand implements CLICommand {
       };
     }
 
-    if (!context.groupNames.includes(groupName)) {
+    const groupNames = getGroupNames(context);
+
+    if (!groupNames.includes(groupName)) {
       return {
         success: false,
-        message: `Invalid group: ${groupName}. Available groups: ${context.groupNames.join(", ")}`,
+        message: `Invalid group: ${groupName}. Available groups: ${groupNames.join(", ")}`,
       };
     }
 
@@ -300,24 +310,21 @@ class HelpCommand implements CLICommand {
   usage = "help";
 
   execute(_args: string[], _executor: string, context: CLIContext): CLIResult {
+    const groupNames = getGroupNames(context);
     const helpMessage = `
 Command Usage: @AC /<Command> [args]
 Commands:
   - add <userGroup> <playerName>
       add player to group
-      userGroup: ${context.groupNames.join(", ")}
+      userGroup: ${groupNames.join(", ")}
   - del <userGroup> <playerName>
       delete player in the group, except Admin
-      userGroup: ${context.groupNames.join(", ")}
+      userGroup: ${groupNames.join(", ")}
   - list
       list all of the player with its group
   - set <options> [params]
       config access control settings
       options: warnInterval, detectInterval, detectRange
-  - creategroup <groupName> <isAllowed> <isNotice>
-      create new user group
-  - removegroup <groupName>
-      remove user group (except admin groups)
   - edit <target> [args]
       edit various configurations
       targets: group (edit group properties)
@@ -331,99 +338,6 @@ Commands:
     return {
       success: true,
       message: helpMessage.trim(),
-    };
-  }
-}
-
-// 创建用户组命令
-class CreateGroupCommand implements CLICommand {
-  name = "creategroup";
-  description = "Create new user group";
-  usage = "creategroup <groupName> <isAllowed> <isNotice>";
-
-  execute(args: string[], _executor: string, context: CLIContext): CLIResult {
-    if (args.length !== 3) {
-      return {
-        success: false,
-        message: `Usage: ${this.usage}\nExample: creategroup VIP2 true false`,
-      };
-    }
-
-    const [groupName, isAllowedStr, isNoticeStr] = args;
-
-    // 检查组名是否已存在
-    if (context.groupNames.includes(groupName) || groupName === "admin") {
-      return {
-        success: false,
-        message: `Group ${groupName} already exists`,
-      };
-    }
-
-    const isAllowed = isAllowedStr.toLowerCase() === "true";
-    const isNotice = isNoticeStr.toLowerCase() === "true";
-
-    const newGroup: UserGroupConfig = {
-      groupName,
-      isAllowed,
-      isNotice,
-      groupUsers: [],
-    };
-
-    context.config.usersGroups.push(newGroup);
-    context.groupNames.push(groupName);
-
-    return {
-      success: true,
-      message: `Created group ${groupName} (allowed: ${isAllowed}, notice: ${isNotice})`,
-      shouldSaveConfig: true,
-    };
-  }
-}
-
-// 删除用户组命令
-class RemoveGroupCommand implements CLICommand {
-  name = "removegroup";
-  description = "Remove user group";
-  usage = "removegroup <groupName>";
-
-  execute(args: string[], _executor: string, context: CLIContext): CLIResult {
-    if (args.length !== 1) {
-      return {
-        success: false,
-        message: `Usage: ${this.usage}`,
-      };
-    }
-
-    const [groupName] = args;
-
-    if (groupName === "admin") {
-      return {
-        success: false,
-        message: "Cannot remove admin group",
-      };
-    }
-
-    const groupIndex = context.config.usersGroups.findIndex(
-      (group) => group.groupName === groupName,
-    );
-
-    if (groupIndex === -1) {
-      return {
-        success: false,
-        message: `Group ${groupName} not found`,
-      };
-    }
-
-    context.config.usersGroups.splice(groupIndex, 1);
-    const nameIndex = context.groupNames.indexOf(groupName);
-    if (nameIndex > -1) {
-      context.groupNames.splice(nameIndex, 1);
-    }
-
-    return {
-      success: true,
-      message: `Removed group ${groupName}`,
-      shouldSaveConfig: true,
     };
   }
 }
@@ -639,20 +553,6 @@ export class AccessControlCLI {
 // 导出类型和工厂函数
 export { CLIContext, CLIResult, CLICommand };
 
-export function createAccessControlCLI(
-  config: AccessConfig,
-  configFilepath: string,
-  log: CCLog,
-  chatBox: any, // eslint-disable-line @typescript-eslint/no-explicit-any
-  groupNames: string[],
-): AccessControlCLI {
-  const context: CLIContext = {
-    config,
-    configFilepath,
-    log,
-    chatBox, // eslint-disable-line @typescript-eslint/no-unsafe-assignment
-    groupNames,
-  };
-
+export function createAccessControlCLI(context: CLIContext): AccessControlCLI {
   return new AccessControlCLI(context);
 }
