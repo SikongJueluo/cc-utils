@@ -72,6 +72,10 @@ export class SortedArray<T> {
     return value?.data;
   }
 
+  public peek(): T | undefined {
+    return this._data[0]?.data;
+  }
+
   public toArray(): T[] {
     return this._data.map(({ data }) => data);
   }

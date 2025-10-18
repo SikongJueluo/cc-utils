@@ -13,6 +13,8 @@ interface Waiter {
   resolve(): void;
 }
 
+type Releaser = () => void;
+
 export class Semaphore {
   private _value: number;
   private _cancelError: Error;
@@ -27,7 +29,7 @@ export class Semaphore {
     this._cancelError = cancelError;
   }
 
-  acquire(weight = 1, priority = 0): Promise<[number, () => void]> {
+  acquire(weight = 1, priority = 0): Promise<[number, Releaser]> {
     if (weight <= 0) {
       throw new Error(`invalid weight ${weight}: must be positive`);
     }
@@ -43,7 +45,7 @@ export class Semaphore {
     });
   }
 
-  tryAcquire(weight = 1): (() => void) | null {
+  tryAcquire(weight = 1): Releaser | null {
     if (weight <= 0) {
       throw new Error(`invalid weight ${weight}: must be positive`);
     }
@@ -139,11 +141,10 @@ export class Semaphore {
   }
 
   private _peek(): QueueEntry | undefined {
-    const array = this._queue.toArray();
-    return array.length > 0 ? array[0] : undefined;
+    return this._queue.peek();
   }
 
-  private _newReleaser(weight: number): () => void {
+  private _newReleaser(weight: number): Releaser {
     let called = false;
     return () => {
       if (called) return;

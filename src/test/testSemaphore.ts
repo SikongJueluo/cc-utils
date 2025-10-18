@@ -62,30 +62,27 @@ async function testQueueing() {
   const [, release1] = await s.acquire();
   events.push("acquired1");
 
-  // These two will be queued
-  await s.acquire().then(([, release]) => {
+  // These two will be queued. Store their promises.
+  const p2 = s.acquire().then(([, release]) => {
     events.push("acquired2");
-    sleep(0.1);
-    release();
     events.push("released2");
-  });
-
-  await s.acquire().then(([, release]) => {
-    events.push("acquired3");
     release();
-    events.push("released3");
   });
 
-  // Give some time for promises to queue
-  sleep(0.1);
+  const p3 = s.acquire().then(([, release]) => {
+    events.push("acquired3");
+    events.push("released3");
+    release();
+  });
+
   assert(events.length === 1, "Only first acquire should have completed");
 
   // Release the first lock, allowing the queue to proceed
-  release1();
   events.push("released1");
+  release1();
 
   // Wait for all promises to finish
-  sleep(0.5);
+  await Promise.all([p2, p3]);
 
   const expected = [
     "acquired1",
@@ -111,20 +108,20 @@ async function testPriority() {
   events.push("acquired_main");
 
   // Queue with low priority
-  await s.acquire(1, 10).then(([, release]) => {
+  const p1 = s.acquire(1, 10).then(([, release]) => {
     events.push("acquired_low_prio");
     release();
   });
 
   // Queue with high priority
-  await s.acquire(1, 1).then(([, release]) => {
+  const p2 = s.acquire(1, 1).then(([, release]) => {
     events.push("acquired_high_prio");
     release();
   });
 
-  sleep(0.1);
   release1();
-  sleep(0.1);
+
+  await Promise.all([p1, p2]);
 
   const expected = ["acquired_main", "acquired_high_prio", "acquired_low_prio"];
   assert(
@@ -142,16 +139,15 @@ async function testWaitForUnlock() {
   const [, release] = await s.acquire();
   assert(s.isLocked(), "Semaphore should be locked");
 
-  await s.waitForUnlock().then(() => {
+  const p1 = s.waitForUnlock().then(() => {
     waited = true;
     assert(!s.isLocked(), "Should be unlocked when wait is over");
   });
 
-  sleep(0.1);
   assert(!waited, "waitForUnlock should not resolve yet");
 
   release();
-  sleep(0.1);
+  await Promise.all([p1]);
   assert(waited, "waitForUnlock should have resolved");
   print("  Test passed: testWaitForUnlock");
 }
@@ -174,9 +170,7 @@ async function testCancel() {
     },
   );
 
-  sleep(0.1);
   s.cancel();
-  sleep(0.1);
 
   assert(rejected, "pending acquire should have been rejected");
   assert(s.getValue() === 0, "cancel should not affect current lock");
