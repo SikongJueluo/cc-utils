@@ -4,6 +4,7 @@ import { createAccessControlCLI } from "./cli";
 import { launchAccessControlTUI } from "./tui";
 import * as peripheralManager from "../lib/PeripheralManager";
 import { deepCopy } from "@/lib/common";
+import { ReadWriteLock } from "@/lib/ReadWriteLock";
 
 const args = [...$vararg];
 
@@ -16,7 +17,8 @@ const logger = new CCLog("accesscontrol.log", {
 
 // Load Config
 const configFilepath = `${shell.dir()}/access.config.json`;
-let config = loadConfig(configFilepath);
+let config = loadConfig(configFilepath)!;
+const configLock = new ReadWriteLock();
 logger.info("Load config successfully!");
 logger.debug(textutils.serialise(config, { allow_repetitions: true }));
 
@@ -25,7 +27,6 @@ const playerDetector = peripheralManager.findByNameRequired("playerDetector");
 const chatBox = peripheralManager.findByNameRequired("chatBox");
 
 // Global
-let noticeTargetPlayers: string[];
 let inRangePlayers: string[] = [];
 let watchPlayersInfo: { name: string; hasNoticeTimes: number }[] = [];
 
@@ -36,9 +37,16 @@ interface ParseParams {
 }
 
 function reloadConfig() {
-  config = loadConfig(configFilepath);
+  let releaser = configLock.tryAcquireWrite();
+  while (releaser === undefined) {
+    sleep(1);
+    releaser = configLock.tryAcquireWrite();
+  }
+
+  config = loadConfig(configFilepath)!;
   inRangePlayers = [];
   watchPlayersInfo = [];
+  releaser.release();
   logger.info("Reload config successfully!");
 }
 
@@ -80,7 +88,13 @@ function sendToast(
   targetPlayer: string,
   params: ParseParams,
 ) {
-  return chatBox.sendFormattedToastToPlayer(
+  let releaser = configLock.tryAcquireRead();
+  while (releaser === undefined) {
+    sleep(0.1);
+    releaser = configLock.tryAcquireRead();
+  }
+
+  chatBox.sendFormattedToastToPlayer(
     safeParseTextComponent(
       toastConfig.msg ?? config.welcomeToastConfig.msg,
       params,
@@ -96,11 +110,18 @@ function sendToast(
     undefined,
     true,
   );
+  releaser.release();
 }
 
 function sendNotice(player: string, playerInfo?: PlayerInfo) {
+  let releaser = configLock.tryAcquireRead();
+  while (releaser === undefined) {
+    sleep(0.1);
+    releaser = configLock.tryAcquireRead();
+  }
+
   const onlinePlayers = playerDetector.getOnlinePlayers();
-  noticeTargetPlayers = config.adminGroupConfig.groupUsers.concat(
+  const noticeTargetPlayers = config.adminGroupConfig.groupUsers.concat(
     config.usersGroups
       .filter((value) => value.isNotice)
       .map((value) => value.groupUsers ?? [])
@@ -114,11 +135,18 @@ function sendNotice(player: string, playerInfo?: PlayerInfo) {
       info: playerInfo,
     });
   }
+  releaser.release();
 }
 
 function sendWarn(player: string) {
   const warnMsg = `Not Allowed Player ${player} Break in Home `;
   logger.warn(warnMsg);
+
+  let releaser = configLock.tryAcquireRead();
+  while (releaser === undefined) {
+    sleep(0.1);
+    releaser = configLock.tryAcquireRead();
+  }
 
   sendToast(config.warnToastConfig, player, { name: player });
   chatBox.sendFormattedMessageToPlayer(
@@ -130,10 +158,17 @@ function sendWarn(player: string) {
     undefined,
     true,
   );
+  releaser.release();
 }
 
 function watchLoop() {
   while (true) {
+    const releaser = configLock.tryAcquireRead();
+    if (releaser === undefined) {
+      os.sleep(1);
+      continue;
+    }
+
     const watchPlayerNames = watchPlayersInfo.flatMap((value) => value.name);
     logger.debug(`Watch Players [ ${watchPlayerNames.join(", ")} ]`);
     for (const player of watchPlayersInfo) {
@@ -164,12 +199,19 @@ function watchLoop() {
       os.sleep(1);
     }
 
+    releaser.release();
     os.sleep(config.watchInterval);
   }
 }
 
 function mainLoop() {
   while (true) {
+    const releaser = configLock.tryAcquireRead();
+    if (releaser === undefined) {
+      os.sleep(0.1);
+      continue;
+    }
+
     const players = playerDetector.getPlayersInRange(config.detectRange);
     const playersList = "[ " + players.join(",") + " ]";
     logger.debug(`Detected ${players.length} players: ${playersList}`);
@@ -214,6 +256,7 @@ function mainLoop() {
     }
 
     inRangePlayers = players;
+    releaser.release();
     os.sleep(config.detectInterval);
   }
 }
@@ -232,7 +275,6 @@ function keyboardLoop() {
       } finally {
         logger.setInTerminal(true);
         reloadConfig();
-        logger.info("Reload config successfully!");
       }
     }
   }
@@ -244,7 +286,6 @@ function main(args: string[]) {
     if (args[0] == "start") {
       // 创建CLI处理器
       const cli = createAccessControlCLI({
-        config: config,
         configFilepath: configFilepath,
         reloadConfig: () => reloadConfig(),
         log: logger,
@@ -259,7 +300,7 @@ function main(args: string[]) {
           mainLoop();
         },
         () => {
-          void cli.startConfigLoop();
+          cli.startConfigLoop();
         },
         () => {
           watchLoop();
@@ -268,6 +309,7 @@ function main(args: string[]) {
           keyboardLoop();
         },
       );
+
       return;
     } else if (args[0] == "config") {
       logger.info("Launching Access Control TUI...");

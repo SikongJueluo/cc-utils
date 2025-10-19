@@ -45,13 +45,13 @@ export class Semaphore {
     });
   }
 
-  tryAcquire(weight = 1): Releaser | null {
+  tryAcquire(weight = 1): Releaser | undefined {
     if (weight <= 0) {
       throw new Error(`invalid weight ${weight}: must be positive`);
     }
 
     if (weight > this._value || this._queue.toArray().length > 0) {
-      return null;
+      return undefined;
     }
 
     this._value -= weight;

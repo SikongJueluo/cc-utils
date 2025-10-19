@@ -49,7 +49,7 @@ interface ErrorState {
 const AccessControlTUI = () => {
   // Load configuration on initialization
   const configFilepath = `${shell.dir()}/access.config.json`;
-  const loadedConfig = loadConfig(configFilepath);
+  const loadedConfig = loadConfig(configFilepath)!;
   // Configuration state
   const [config, setConfig] = createStore<AccessConfig>(loadedConfig);
 

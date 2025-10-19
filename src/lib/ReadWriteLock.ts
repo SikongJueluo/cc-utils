@@ -46,11 +46,11 @@ export class ReadWriteLock {
   /**
    * Tries to acquire a read lock immediately. Returns null if not available.
    */
-  tryAcquireRead(): ReadLockHandle | null {
+  tryAcquireRead(): ReadLockHandle | undefined {
     const release = this._semaphore.tryAcquire(1);
 
-    if (release === null) {
-      return null;
+    if (release === undefined) {
+      return undefined;
     }
 
     return { release };
@@ -72,11 +72,11 @@ export class ReadWriteLock {
   /**
    * Tries to acquire a write lock immediately. Returns null if not available.
    */
-  tryAcquireWrite(): WriteLockHandle | null {
+  tryAcquireWrite(): WriteLockHandle | undefined {
     const release = this._semaphore.tryAcquire(this._writerWeight);
 
-    if (release === null) {
-      return null;
+    if (release === undefined) {
+      return undefined;
     }
 
     return { release };

@@ -1,5 +1,10 @@
 import { CCLog } from "@/lib/ccLog";
-import { AccessConfig, UserGroupConfig, saveConfig } from "./config";
+import {
+  AccessConfig,
+  UserGroupConfig,
+  loadConfig,
+  saveConfig,
+} from "./config";
 import { ChatBoxEvent, pullEventAs } from "@/lib/event";
 import { parseBoolean } from "@/lib/common";
 
@@ -16,19 +21,19 @@ interface CLIResult {
   success: boolean;
   message?: string;
   shouldSaveConfig?: boolean;
+  config?: AccessConfig;
 }
 
 // CLI上下文
 interface CLIContext {
-  config: AccessConfig;
   configFilepath: string;
   reloadConfig: () => void;
   log: CCLog;
   chatBox: ChatBoxPeripheral;
 }
 
-function getGroupNames(context: CLIContext) {
-  return context.config.usersGroups.flatMap((value) => value.groupName);
+function getGroupNames(config: AccessConfig) {
+  return config.usersGroups.flatMap((value) => value.groupName);
 }
 
 // 基础命令处理器
@@ -76,10 +81,6 @@ class CLICommandProcessor {
     }
 
     const ret = command.execute(args, executor, this.context);
-    if (ret.success) {
-      this.context.reloadConfig();
-      return ret;
-    }
     return ret;
   }
 
@@ -101,7 +102,8 @@ class CLICommandProcessor {
     }
 
     if (result.shouldSaveConfig === true) {
-      saveConfig(this.context.config, this.context.configFilepath);
+      saveConfig(result.config!, this.context.configFilepath);
+      this.context.reloadConfig();
     }
   }
 }
@@ -121,26 +123,30 @@ class AddCommand implements CLICommand {
     }
 
     const [groupName, playerName] = args;
+    const config: AccessConfig = loadConfig(context.configFilepath)!;
 
     if (groupName === "admin") {
-      context.config.adminGroupConfig.groupUsers.push(playerName);
+      config.adminGroupConfig.groupUsers.push(playerName);
       return {
         success: true,
         message: `Add player ${playerName} to admin`,
         shouldSaveConfig: true,
+        config,
       };
     }
 
-    const groupNames = getGroupNames(context);
+    const groupNames = getGroupNames(config);
 
     if (!groupNames.includes(groupName)) {
       return {
         success: false,
-        message: `Invalid group: ${groupName}. Available groups: ${groupNames.join(", ")}`,
+        message: `Invalid group: ${groupName}. Available groups: ${groupNames.join(
+          ", ",
+        )}`,
       };
     }
 
-    const groupConfig = context.config.usersGroups.find(
+    const groupConfig = config.usersGroups.find(
       (value) => value.groupName === groupName,
     );
 
@@ -161,6 +167,7 @@ class AddCommand implements CLICommand {
       success: true,
       message: `Add player ${playerName} to ${groupConfig.groupName}`,
       shouldSaveConfig: true,
+      config,
     };
   }
 }
@@ -188,16 +195,19 @@ class DelCommand implements CLICommand {
       };
     }
 
-    const groupNames = getGroupNames(context);
+    const config: AccessConfig = loadConfig(context.configFilepath)!;
+    const groupNames = getGroupNames(config);
 
     if (!groupNames.includes(groupName)) {
       return {
         success: false,
-        message: `Invalid group: ${groupName}. Available groups: ${groupNames.join(", ")}`,
+        message: `Invalid group: ${groupName}. Available groups: ${groupNames.join(
+          ", ",
+        )}`,
       };
     }
 
-    const groupConfig = context.config.usersGroups.find(
+    const groupConfig = config.usersGroups.find(
       (value) => value.groupName === groupName,
     );
 
@@ -220,6 +230,7 @@ class DelCommand implements CLICommand {
       success: true,
       message: `Delete ${groupConfig.groupName} ${playerName}`,
       shouldSaveConfig: true,
+      config,
     };
   }
 }
@@ -231,9 +242,10 @@ class ListCommand implements CLICommand {
   usage = "list";
 
   execute(_args: string[], _executor: string, context: CLIContext): CLIResult {
-    let message = `Admins : [ ${context.config.adminGroupConfig.groupUsers.join(", ")} ]\n`;
+    const config = loadConfig(context.configFilepath)!;
+    let message = `Admins : [ ${config.adminGroupConfig.groupUsers.join(", ")} ]\n`;
 
-    for (const groupConfig of context.config.usersGroups) {
+    for (const groupConfig of config.usersGroups) {
       const users = groupConfig.groupUsers ?? [];
       message += `${groupConfig.groupName} : [ ${users.join(", ")} ]\n`;
     }
@@ -269,29 +281,34 @@ class SetCommand implements CLICommand {
       };
     }
 
+    const config: AccessConfig = loadConfig(context.configFilepath)!;
+
     switch (option) {
       case "warnInterval":
-        context.config.watchInterval = value;
+        config.watchInterval = value;
         return {
           success: true,
-          message: `Set warn interval to ${context.config.watchInterval}`,
+          message: `Set warn interval to ${config.watchInterval}`,
           shouldSaveConfig: true,
+          config,
         };
 
       case "detectInterval":
-        context.config.detectInterval = value;
+        config.detectInterval = value;
         return {
           success: true,
-          message: `Set detect interval to ${context.config.detectInterval}`,
+          message: `Set detect interval to ${config.detectInterval}`,
           shouldSaveConfig: true,
+          config,
         };
 
       case "detectRange":
-        context.config.detectRange = value;
+        config.detectRange = value;
         return {
           success: true,
-          message: `Set detect range to ${context.config.detectRange}`,
+          message: `Set detect range to ${config.detectRange}`,
           shouldSaveConfig: true,
+          config,
         };
 
       default:
@@ -310,7 +327,8 @@ class HelpCommand implements CLICommand {
   usage = "help";
 
   execute(_args: string[], _executor: string, context: CLIContext): CLIResult {
-    const groupNames = getGroupNames(context);
+    const config = loadConfig(context.configFilepath)!;
+    const groupNames = getGroupNames(config);
     const helpMessage = `
 Command Usage: @AC /<Command> [args]
 Commands:
@@ -378,13 +396,14 @@ class EditCommand implements CLICommand {
     }
 
     const [groupName, property, valueStr] = args;
+    const config: AccessConfig = loadConfig(context.configFilepath)!;
 
     let groupConfig: UserGroupConfig | undefined;
 
     if (groupName === "admin") {
-      groupConfig = context.config.adminGroupConfig;
+      groupConfig = config.adminGroupConfig;
     } else {
-      groupConfig = context.config.usersGroups.find(
+      groupConfig = config.usersGroups.find(
         (group) => group.groupName === groupName,
       );
     }
@@ -405,6 +424,7 @@ class EditCommand implements CLICommand {
             success: true,
             message: `Set ${groupName}.isAllowed to ${groupConfig.isAllowed}`,
             shouldSaveConfig: true,
+            config,
           };
         } else {
           return {
@@ -423,6 +443,7 @@ class EditCommand implements CLICommand {
             success: true,
             message: `Set ${groupName}.isNotice to ${groupConfig.isNotice}`,
             shouldSaveConfig: true,
+            config,
           };
         } else {
           return {
@@ -450,15 +471,16 @@ class ShowConfigCommand implements CLICommand {
 
   execute(args: string[], _executor: string, context: CLIContext): CLIResult {
     const type = args[0] || "all";
+    const config = loadConfig(context.configFilepath)!;
 
     switch (type) {
       case "groups": {
-        let groupsMessage = `Admin Group: ${context.config.adminGroupConfig.groupName}\n`;
-        groupsMessage += `  Users: [${context.config.adminGroupConfig.groupUsers.join(", ")}]\n`;
-        groupsMessage += `  Allowed: ${context.config.adminGroupConfig.isAllowed}\n`;
-        groupsMessage += `  notice: ${context.config.adminGroupConfig.isNotice}\n\n`;
+        let groupsMessage = `Admin Group: ${config.adminGroupConfig.groupName}\n`;
+        groupsMessage += `  Users: [${config.adminGroupConfig.groupUsers.join(", ")}]\n`;
+        groupsMessage += `  Allowed: ${config.adminGroupConfig.isAllowed}\n`;
+        groupsMessage += `  notice: ${config.adminGroupConfig.isNotice}\n\n`;
 
-        for (const group of context.config.usersGroups) {
+        for (const group of config.usersGroups) {
           groupsMessage += `Group: ${group.groupName}\n`;
           groupsMessage += `  Users: [${(group.groupUsers ?? []).join(", ")}]\n`;
           groupsMessage += `  Allowed: ${group.isAllowed}\n`;
@@ -474,18 +496,18 @@ class ShowConfigCommand implements CLICommand {
 
       case "toast": {
         let toastMessage = "Default Toast Config:\n";
-        toastMessage += `  Title: ${context.config.welcomeToastConfig.title.text}\n`;
-        toastMessage += `  Message: ${context.config.welcomeToastConfig.msg.text}\n`;
-        toastMessage += `  Prefix: ${context.config.welcomeToastConfig.prefix ?? "none"}\n`;
-        toastMessage += `  Brackets: ${context.config.welcomeToastConfig.brackets ?? "none"}\n`;
-        toastMessage += `  Bracket Color: ${context.config.welcomeToastConfig.bracketColor ?? "none"}\n\n`;
+        toastMessage += `  Title: ${config.welcomeToastConfig.title.text}\n`;
+        toastMessage += `  Message: ${config.welcomeToastConfig.msg.text}\n`;
+        toastMessage += `  Prefix: ${config.welcomeToastConfig.prefix ?? "none"}\n`;
+        toastMessage += `  Brackets: ${config.welcomeToastConfig.brackets ?? "none"}\n`;
+        toastMessage += `  Bracket Color: ${config.welcomeToastConfig.bracketColor ?? "none"}\n\n`;
 
         toastMessage += "Warn Toast Config:\n";
-        toastMessage += `  Title: ${context.config.warnToastConfig.title.text}\n`;
-        toastMessage += `  Message: ${context.config.warnToastConfig.msg.text}\n`;
-        toastMessage += `  Prefix: ${context.config.warnToastConfig.prefix ?? "none"}\n`;
-        toastMessage += `  Brackets: ${context.config.warnToastConfig.brackets ?? "none"}\n`;
-        toastMessage += `  Bracket Color: ${context.config.warnToastConfig.bracketColor ?? "none"}`;
+        toastMessage += `  Title: ${config.warnToastConfig.title.text}\n`;
+        toastMessage += `  Message: ${config.warnToastConfig.msg.text}\n`;
+        toastMessage += `  Prefix: ${config.warnToastConfig.prefix ?? "none"}\n`;
+        toastMessage += `  Brackets: ${config.warnToastConfig.brackets ?? "none"}\n`;
+        toastMessage += `  Bracket Color: ${config.warnToastConfig.bracketColor ?? "none"}`;
 
         return {
           success: true,
@@ -494,9 +516,9 @@ class ShowConfigCommand implements CLICommand {
       }
 
       case "all": {
-        let allMessage = `Detect Range: ${context.config.detectRange}\n`;
-        allMessage += `Detect Interval: ${context.config.detectInterval}\n`;
-        allMessage += `Warn Interval: ${context.config.watchInterval}\n\n`;
+        let allMessage = `Detect Range: ${config.detectRange}\n`;
+        allMessage += `Detect Interval: ${config.detectInterval}\n`;
+        allMessage += `Warn Interval: ${config.watchInterval}\n\n`;
         allMessage +=
           "Use 'showconfig groups' or 'showconfig toast' for detailed view";
 
@@ -530,10 +552,9 @@ export class AccessControlCLI {
       const ev = pullEventAs(ChatBoxEvent, "chat");
 
       if (ev === undefined) continue;
-      if (
-        !this.context.config.adminGroupConfig.groupUsers.includes(ev.username)
-      )
-        continue;
+
+      const config = loadConfig(this.context.configFilepath)!;
+      if (!config.adminGroupConfig.groupUsers.includes(ev.username)) continue;
       if (!ev.message.startsWith("@AC")) continue;
 
       this.context.log.info(
@@ -542,7 +563,6 @@ export class AccessControlCLI {
 
       const result = this.processor.processCommand(ev.message, ev.username);
       this.processor.sendResponse(result, ev.username);
-
       if (!result.success) {
         this.context.log.warn(`Command failed: ${result.message}`);
       }

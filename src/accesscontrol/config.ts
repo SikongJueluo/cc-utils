@@ -101,9 +101,13 @@ const defaultConfig: AccessConfig = {
   },
 };
 
-function loadConfig(filepath: string): AccessConfig {
+function loadConfig(
+  filepath: string,
+  useDefault = true,
+): AccessConfig | undefined {
   const [fp] = io.open(filepath, "r");
   if (fp == undefined) {
+    if (useDefault === false) return undefined;
     print("Failed to open config file " + filepath);
     print("Use default config");
     saveConfig(defaultConfig, filepath);
@@ -112,6 +116,7 @@ function loadConfig(filepath: string): AccessConfig {
 
   const configJson = fp.read("*a");
   if (configJson == undefined) {
+    if (useDefault === false) return undefined;
     print("Failed to read config file");
     print("Use default config");
     saveConfig(defaultConfig, filepath);
