@@ -124,9 +124,9 @@ function sendNotice(player: string, playerInfo?: PlayerInfo) {
   const noticeTargetPlayers = config.adminGroupConfig.groupUsers.concat(
     config.usersGroups
       .filter((value) => value.isNotice)
-      .map((value) => value.groupUsers ?? [])
-      .flat(),
+      .flatMap((value) => value.groupUsers ?? []),
   );
+  logger.debug(`noticeTargetPlayers: ${noticeTargetPlayers.join(", ")}`);
 
   for (const targetPlayer of noticeTargetPlayers) {
     if (!onlinePlayers.includes(targetPlayer)) continue;
@@ -134,6 +134,7 @@ function sendNotice(player: string, playerInfo?: PlayerInfo) {
       name: player,
       info: playerInfo,
     });
+    sleep(1);
   }
   releaser.release();
 }

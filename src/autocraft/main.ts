@@ -1,22 +1,30 @@
-import { CraftManager } from "@/lib/CraftManager";
-import { CCLog } from "@/lib/ccLog";
+import {
+  CraftManager,
+  CraftRecipe,
+  CreatePackageTag,
+} from "@/lib/CraftManager";
+import { CCLog, LogLevel } from "@/lib/ccLog";
+import { Queue } from "@/lib/datatype/Queue";
 
-const logger = new CCLog("autocraft.log");
+const logger = new CCLog("autocraft.log", { outputMinLevel: LogLevel.Info });
 
 const peripheralsNames = {
-  packagesContainer: "minecraft:chest_10",
-  itemsContainer: "minecraft:chest_9",
-  packageExtractor: "create:packager_1",
-  blockReader: "front",
-  wiredModem: "back",
-  redstone: "front",
+  // packsInventory: "minecraft:chest_14",
+  // itemsInventory: "minecraft:chest_15",
+  // packageExtractor: "create:packager_3",
+  blockReader: "bottom",
+  wiredModem: "right",
+  redstone: "left",
+  packsInventory: "minecraft:chest_1121",
+  itemsInventory: "minecraft:chest_1120",
+  packageExtractor: "create:packager_0",
 };
 
-const packagesContainer = peripheral.wrap(
-  peripheralsNames.packagesContainer,
+const packsInventory = peripheral.wrap(
+  peripheralsNames.packsInventory,
 ) as InventoryPeripheral;
-const itemsContainer = peripheral.wrap(
-  peripheralsNames.itemsContainer,
+const itemsInventory = peripheral.wrap(
+  peripheralsNames.itemsInventory,
 ) as InventoryPeripheral;
 const packageExtractor = peripheral.wrap(
   peripheralsNames.packageExtractor,
@@ -31,87 +39,170 @@ const turtleLocalName = wiredModem.getNameLocal();
 
 enum State {
   IDLE,
-  CHECK_PACK,
   READ_RECIPE,
-  PULL_ITEMS,
   CRAFT_OUTPUT,
 }
 
 function main() {
-  const craftManager = new CraftManager(turtleLocalName);
+  const craftManager = new CraftManager(turtleLocalName, itemsInventory);
+  const recipesQueue = new Queue<CraftRecipe>();
+  const recipesWaitingMap = new Map<number, CraftRecipe[] | CraftRecipe>();
+  let currentState = State.IDLE;
+  let nextState = State.IDLE;
   let hasPackage = redstone.getInput(peripheralsNames.redstone);
-  // let currentState = State.IDLE;
-  // let nextState = State.IDLE;
+  while (hasPackage) {
+    hasPackage = redstone.getInput(peripheralsNames.redstone);
+    logger.warn("redstone activated when init, please clear inventory");
+    sleep(1);
+  }
 
   logger.info("AutoCraft init finished...");
   while (true) {
-    if (!hasPackage) os.pullEvent("redstone");
-    hasPackage = redstone.getInput(peripheralsNames.redstone);
-    if (!hasPackage) {
-      continue;
+    // Switch state
+    switch (currentState) {
+      case State.IDLE: {
+        nextState = hasPackage ? State.READ_RECIPE : State.IDLE;
+        break;
+      }
+      case State.READ_RECIPE: {
+        nextState = hasPackage ? State.READ_RECIPE : State.CRAFT_OUTPUT;
+        break;
+      }
+      case State.CRAFT_OUTPUT: {
+        nextState =
+          recipesQueue.size() > 0
+            ? State.CRAFT_OUTPUT
+            : hasPackage
+              ? State.READ_RECIPE
+              : State.IDLE;
+        break;
+      }
+      default: {
+        logger.error(`Unknown state`);
+        nextState = hasPackage ? State.READ_RECIPE : State.IDLE;
+        break;
+      }
     }
-    logger.info(`Package detected`);
 
-    const itemsInfo = packagesContainer.list();
-    for (const key in itemsInfo) {
-      const slot = parseInt(key);
-      const item = itemsInfo[slot];
-      logger.info(`${item.count}x ${item.name} in slot ${key}`);
-
-      // Get package NBT
-      packagesContainer.pushItems(turtleLocalName, slot);
-      const packageInfo = blockReader.getBlockData()!.Items[1];
-      // log.info(textutils.serialise(packageInfo));
-
-      // Get recipe
-      const packageRecipes = CraftManager.getPackageRecipe(packageInfo);
-
-      // No recipe, just extract package
-      if (packageRecipes.isNone()) {
-        packageExtractor.pullItems(turtleLocalName, 1);
-        logger.info(`No recipe, just pass`);
-        continue;
+    // State logic
+    switch (currentState) {
+      case State.IDLE: {
+        if (!hasPackage) os.pullEvent("redstone");
+        hasPackage = redstone.getInput(peripheralsNames.redstone);
+        break;
       }
 
-      // Extract package
-      // log.info(`Get recipe ${textutils.serialise(recipe)}`);
-      packageExtractor.pullItems(turtleLocalName, 1);
+      case State.READ_RECIPE: {
+        logger.info(`Package detected`);
+        const packagesInfoRecord = packsInventory.list();
+        for (const key in packagesInfoRecord) {
+          const slotNum = parseInt(key);
+          packsInventory.pushItems(turtleLocalName, slotNum);
 
-      // Pull and craft multi recipe
-      for (const recipe of packageRecipes.value) {
-        let craftOutputItem: BlockItemDetailData | undefined = undefined;
+          // Get package NBT
+          logger.debug(
+            `Turtle:\n${textutils.serialise(blockReader.getBlockData()!, { allow_repetitions: true })}`,
+          );
+          const packageDetailInfo = blockReader.getBlockData()?.Items[1];
+          if (packageDetailInfo === undefined) {
+            logger.error(`Package detail info not found`);
+            continue;
+          }
+
+          // Get OrderId and isFinal
+          const packageOrderId = (packageDetailInfo.tag as CreatePackageTag)
+            .Fragment.OrderId;
+          const packageIsFinal =
+            (packageDetailInfo.tag as CreatePackageTag).Fragment.IsFinal > 0
+              ? true
+              : false;
+
+          // Get recipe
+          const packageRecipes =
+            CraftManager.getPackageRecipe(packageDetailInfo);
+          if (packageRecipes.isSome()) {
+            if (packageIsFinal) recipesQueue.enqueue(packageRecipes.value);
+            else recipesWaitingMap.set(packageOrderId, packageRecipes.value);
+          } else {
+            if (packageIsFinal && recipesWaitingMap.has(packageOrderId)) {
+              recipesQueue.enqueue(recipesWaitingMap.get(packageOrderId)!);
+              recipesWaitingMap.delete(packageOrderId);
+            } else {
+              logger.debug(`No recipe, just pass`);
+            }
+          }
+          packageExtractor.pullItems(turtleLocalName, 1);
+        }
+
+        if (
+          currentState === State.READ_RECIPE &&
+          nextState === State.CRAFT_OUTPUT
+        ) {
+          craftManager.initItemsMap();
+        }
+
+        break;
+      }
+
+      case State.CRAFT_OUTPUT: {
+        // Check recipe
+        const recipe = recipesQueue.dequeue();
+        if (recipe === undefined) break;
+
         let restCraftCnt = recipe.Count;
+        let maxSignleCraftCnt = restCraftCnt;
 
+        let craftItemDetail: ItemDetail | undefined = undefined;
         do {
           // Clear workbench
-          craftManager.pushAll(itemsContainer);
+          craftManager.clearTurtle();
 
           logger.info(`Pull items according to a recipe`);
           const craftCnt = craftManager
-            .pullItems(recipe, itemsContainer, restCraftCnt)
+            .pullItemsWithRecipe(recipe, maxSignleCraftCnt)
             .unwrapOrElse((error) => {
               logger.error(error.message);
               return 0;
             });
 
           if (craftCnt == 0) break;
-          craftManager.craft();
+          if (craftCnt < maxSignleCraftCnt) maxSignleCraftCnt = craftCnt;
+          const craftRet = craftManager.craft(maxSignleCraftCnt);
+          craftItemDetail ??= craftRet;
           logger.info(`Craft ${craftCnt} times`);
           restCraftCnt -= craftCnt;
-
-          // Get output item
-          craftOutputItem ??= blockReader.getBlockData()!.Items[1];
         } while (restCraftCnt > 0);
 
         // Finally output
         if (restCraftCnt > 0) {
-          logger.warn(`Only craft ${recipe.Count - restCraftCnt} times`);
+          logger.warn(
+            `Only craft ${recipe.Count - restCraftCnt}x ${craftItemDetail?.name ?? "UnknownItem"}`,
+          );
         } else {
-          logger.info(`Finish craft ${recipe.Count}x ${craftOutputItem?.id}`);
+          logger.info(
+            `Finish craft ${recipe.Count}x ${craftItemDetail?.name ?? "UnknownItem"}`,
+          );
         }
-        craftManager.pushAll(itemsContainer);
+
+        // Clear workbench and inventory
+        const turtleItemSlots = Object.values(
+          blockReader.getBlockData()!.Items,
+        ).map((val) => val.Slot + 1);
+        craftManager.clearTurtle(turtleItemSlots);
+
+        break;
+      }
+
+      default: {
+        sleep(1);
+        break;
       }
     }
+
+    // Check packages
+    hasPackage = redstone.getInput(peripheralsNames.redstone);
+    // State update
+    currentState = nextState;
   }
 }
 

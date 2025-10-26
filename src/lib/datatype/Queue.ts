@@ -26,7 +26,14 @@ export class Queue<T> {
     }
   }
 
-  public enqueue(data: T): void {
+  public enqueue(data: T | T[]): void {
+    if (Array.isArray(data)) {
+      for (const val of data) {
+        this.enqueue(val);
+      }
+      return;
+    }
+
     const node = new Node(data);
 
     if (this._head === undefined) {

@@ -6,7 +6,7 @@ declare interface BlockItemDetailData {
 }
 
 declare interface BlockDetailData {
-  Items: Record<number, BlockItemDetailData>;
+  Items: Record<string, BlockItemDetailData>;
 }
 
 /**
