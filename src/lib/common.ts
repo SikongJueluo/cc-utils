@@ -30,7 +30,7 @@ export function concatSentence(words: string[], length: number): string[] {
  * @see Source project, ts-deepcopy https://github.com/ykdr2017/ts-deepcopy
  * @see Code pen https://codepen.io/erikvullings/pen/ejyBYg
  */
-export const deepCopy = <T>(target: T): T => {
+export function deepCopy<T>(target: T): T {
   if (target === null) {
     return target;
   }
@@ -48,4 +48,4 @@ export const deepCopy = <T>(target: T): T => {
     return cp as T;
   }
   return target;
-};
+}

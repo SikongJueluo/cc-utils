@@ -4,7 +4,7 @@ import { createAccessControlCLI } from "./cli";
 import { launchAccessControlTUI } from "./tui";
 import * as peripheralManager from "../lib/PeripheralManager";
 import { deepCopy } from "@/lib/common";
-import { ReadWriteLock } from "@/lib/ReadWriteLock";
+import { ReadWriteLock } from "@/lib/mutex/ReadWriteLock";
 
 const args = [...$vararg];
 

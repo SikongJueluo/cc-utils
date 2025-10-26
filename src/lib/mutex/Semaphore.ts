@@ -1,4 +1,4 @@
-import { SortedArray } from "./SortedArray";
+import { SortedArray } from "../datatype/SortedArray";
 
 const E_CANCELED = new Error("Request canceled");
 // const E_INSUFFICIENT_RESOURCES = new Error("Insufficient resources");

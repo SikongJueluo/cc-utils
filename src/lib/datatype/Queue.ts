@@ -1,7 +1,7 @@
 export class Node<T> {
   public value: T;
-  public next?: Node<T>
-  public prev?: Node<T>
+  public next?: Node<T>;
+  public prev?: Node<T>;
 
   constructor(value: T, next?: Node<T>, prev?: Node<T>) {
     this.value = value;
@@ -15,10 +15,15 @@ export class Queue<T> {
   private _tail?: Node<T>;
   private _size: number;
 
-  constructor() {
+  constructor(data?: T[]) {
     this._head = undefined;
     this._tail = undefined;
     this._size = 0;
+
+    if (data === undefined) return;
+    for (const item of data) {
+      this.enqueue(item);
+    }
   }
 
   public enqueue(data: T): void {
@@ -37,11 +42,11 @@ export class Queue<T> {
   }
 
   public dequeue(): T | undefined {
+    if (this._head === undefined) return undefined;
     const node = this._head;
-    if (node === undefined) return undefined;
 
-    this._head = this._head!.next;
-    this._head!.prev = undefined;
+    this._head = node.next;
+    if (this._head !== undefined) this._head.prev = undefined;
     this._size--;
 
     return node.value;
@@ -68,8 +73,7 @@ export class Queue<T> {
     const array: T[] = [];
     let currentNode: Node<T> = this._head!;
     for (let i = 0; i < this._size; i++) {
-      if (currentNode.value !== undefined)
-        array.push(currentNode.value);
+      if (currentNode.value !== undefined) array.push(currentNode.value);
 
       currentNode = currentNode.next!;
     }
@@ -82,13 +86,13 @@ export class Queue<T> {
     return {
       next(): IteratorResult<T> {
         if (currentNode === undefined) {
-          return { value: undefined, done: true }
+          return { value: undefined, done: true };
         } else {
           const data = currentNode.value;
           currentNode = currentNode.next;
-          return { value: data, done: false }
+          return { value: data, done: false };
         }
-      }
-    }
+      },
+    };
   }
 }

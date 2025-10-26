@@ -1,6 +1,5 @@
-import { CCLog } from "./ccLog";
-
-const log = new CCLog("CraftManager.log");
+import { Queue } from "./datatype/Queue";
+import { Result, Ok, Err, Option, Some, None } from "./thirdparty/ts-result-es";
 
 // ComputerCraft Turtle inventory layout:
 // 1,  2,  3,  4
@@ -70,6 +69,13 @@ interface CraftRecipe {
   Count: number;
 }
 
+interface InventorySlotInfo {
+  name: string;
+  count: number;
+  maxCount: number;
+  slotNum: number;
+}
+
 type CraftMode = "keep" | "keepProduct" | "keepIngredient";
 
 class CraftManager {
@@ -117,80 +123,122 @@ class CraftManager {
 
   public static getPackageRecipe(
     item: BlockItemDetailData,
-  ): CraftRecipe[] | undefined {
+  ): Option<CraftRecipe[]> {
     if (
       !item.id.includes("create:cardboard_package") ||
       (item.tag as CreatePackageTag)?.Fragment?.OrderContext
         ?.OrderedCrafts?.[0] == undefined
     ) {
-      return undefined;
+      return None;
     }
 
     const orderedCraft = (item.tag as CreatePackageTag).Fragment.OrderContext
       .OrderedCrafts;
-    return orderedCraft.map((value, _) => ({
-      PatternEntries: value.Pattern.Entries,
-      Count: value.Count,
-    }));
+    return new Some(
+      orderedCraft.map((value, _) => ({
+        PatternEntries: value.Pattern.Entries,
+        Count: value.Count,
+      })),
+    );
   }
 
   public pullItems(
     recipe: CraftRecipe,
-    inventory: InventoryPeripheral,
-    limit: number,
-  ): number {
-    let maxCraftCount = limit;
+    srcInventory: InventoryPeripheral,
+    craftCnt: number,
+  ): Result<number> {
+    // Initialize hash map
+    const ingredientList = srcInventory.list();
+    const ingredientMap = new Map<string, Queue<InventorySlotInfo>>();
+    for (const key in ingredientList) {
+      const slotNum = parseInt(key);
+      const item = srcInventory.getItemDetail(slotNum)!;
 
+      if (ingredientMap.has(item.name)) {
+        ingredientMap.get(item.name)!.enqueue({
+          name: item.name,
+          slotNum: slotNum,
+          count: item.count,
+          maxCount: item.maxCount,
+        });
+      } else {
+        ingredientMap.set(
+          item.name,
+          new Queue<InventorySlotInfo>([
+            {
+              name: item.name,
+              slotNum: slotNum,
+              count: item.count,
+              maxCount: item.maxCount,
+            },
+          ]),
+        );
+      }
+    }
+
+    let maxCraftCnt = craftCnt;
     for (const index in recipe.PatternEntries) {
       const entry = recipe.PatternEntries[index];
       if (entry.Item.Count == 0 || entry.Item.id == "minecraft:air") {
         continue;
       }
 
-      const ingredientList = inventory.list();
-      let restCount = maxCraftCount;
-      for (const key in ingredientList) {
-        // Get item detail and check max count
-        const slot = parseInt(key);
-        const ingredient = inventory.getItemDetail(slot)!;
-        if (entry.Item.id != ingredient.name) {
-          continue;
+      if (!ingredientMap.has(entry.Item.id))
+        return new Err(Error(`No ingredient match ${entry.Item.id}`));
+
+      const ingredient = ingredientMap.get(entry.Item.id)!;
+      let restCraftCnt = maxCraftCnt;
+      while (restCraftCnt > 0 && ingredient.size() > 0) {
+        const slotItem = ingredient.dequeue()!;
+
+        // Check item max stack count
+        if (slotItem.maxCount < maxCraftCnt) {
+          maxCraftCnt = slotItem.maxCount;
+          restCraftCnt = maxCraftCnt;
         }
 
-        const ingredientMaxCount = ingredient.maxCount;
-        if (maxCraftCount > ingredientMaxCount) {
-          maxCraftCount = ingredientMaxCount;
-          restCount = maxCraftCount;
-        }
-        log.info(
-          `Slot ${slot} ${ingredient.name} max count: ${ingredientMaxCount}`,
-        );
-
-        // TODO: Process multi count entry item
-        if (ingredient.count >= restCount) {
-          inventory.pushItems(
+        if (slotItem.count >= restCraftCnt) {
+          const pushItemsCnt = srcInventory.pushItems(
             this.localName,
-            slot,
-            restCount,
-            CRAFT_SLOT_TABLE[parseInt(index) - 1],
+            slotItem.slotNum,
+            restCraftCnt,
+            CRAFT_SLOT_TABLE[index],
           );
-          restCount = 0;
-          break;
+          if (pushItemsCnt !== restCraftCnt)
+            return new Err(
+              Error(
+                `Try to get items ${restCraftCnt}x "${slotItem.name}" from inventory, but only get ${pushItemsCnt}x`,
+              ),
+            );
+          if (slotItem.count > restCraftCnt) {
+            ingredient.enqueue({
+              ...slotItem,
+              count: slotItem.count - restCraftCnt,
+            });
+          }
+          restCraftCnt = 0;
         } else {
-          inventory.pushItems(
+          const pushItemsCnt = srcInventory.pushItems(
             this.localName,
-            slot,
-            ingredient.count,
-            CRAFT_SLOT_TABLE[parseInt(index) - 1],
+            slotItem.slotNum,
+            slotItem.count,
+            CRAFT_SLOT_TABLE[index],
           );
-          restCount -= ingredient.count;
+          if (pushItemsCnt !== slotItem.count)
+            return new Err(
+              Error(
+                `Try to get items ${slotItem.count}x "${slotItem.name}" from inventory, but only get ${pushItemsCnt}x`,
+              ),
+            );
+          restCraftCnt -= slotItem.count;
         }
       }
 
-      if (restCount > 0) return 0;
+      if (restCraftCnt > 0)
+        return new Err(Error("Not enough items in inventory"));
     }
 
-    return maxCraftCount;
+    return new Ok(maxCraftCnt);
   }
 }
 
