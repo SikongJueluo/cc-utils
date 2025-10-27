@@ -11,7 +11,7 @@ export function generateHelp<TContext extends object>(
   commandPath: string[] = [],
 ): string {
   const lines: string[] = [];
-  const fullCommandName = [...commandPath, command.name].join(" ");
+  const fullCommandName = commandPath.join(" ");
 
   // Description
   if (command.description !== undefined) {

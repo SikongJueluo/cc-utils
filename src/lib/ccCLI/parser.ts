@@ -81,7 +81,7 @@ export function parseArguments<TContext extends object>(
 ): Result<ParseResult<TContext>, CliError> {
   const result: ParseResult<TContext> = {
     command: rootCommand,
-    commandPath: [],
+    commandPath: [rootCommand.name],
     options: {},
     remaining: [],
   };

@@ -22,7 +22,9 @@ import { generateHelp, shouldShowHelp, generateCommandList } from "./help";
 export interface CreateCliOptions<TContext extends object> {
   /** An optional global context object to be made available in all command actions. */
   globalContext?: TContext;
-  /** An optional function to handle output. Defaults to the global `print` function. */
+  /** An optional function to handle output.
+   *  Default: textutils.pagedPrint(msg, term.getCursorPos()[1] - 2)
+   **/
   writer?: (message: string) => void;
 }
 
@@ -36,12 +38,15 @@ export function createCli<TContext extends object>(
   rootCommand: Command<TContext>,
   options: CreateCliOptions<TContext> = {},
 ): (argv: string[]) => void {
-  const { globalContext, writer = print } = options;
+  const {
+    globalContext,
+    writer = (msg) => textutils.pagedPrint(msg, term.getCursorPos()[1] - 2),
+  } = options;
 
   return (argv: string[]): void => {
     // Check for top-level help flags before any parsing.
     if (argv[0]?.startsWith("--help") || argv[0]?.startsWith("-h")) {
-      writer(generateHelp(rootCommand));
+      writer(generateHelp(rootCommand, [rootCommand.name]));
       return;
     }
 
