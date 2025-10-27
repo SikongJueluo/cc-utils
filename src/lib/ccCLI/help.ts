@@ -20,10 +20,10 @@ export function generateHelp<TContext extends object>(
 
   // Usage
   const usageParts: string[] = ["Usage:", fullCommandName];
-  if (command.options && command.options.length > 0) {
+  if (command.options && command.options.size > 0) {
     usageParts.push("[OPTIONS]");
   }
-  if (command.subcommands && command.subcommands.length > 0) {
+  if (command.subcommands && command.subcommands.size > 0) {
     usageParts.push("<COMMAND>");
   }
   if (command.args && command.args.length > 0) {
@@ -45,9 +45,9 @@ export function generateHelp<TContext extends object>(
   }
 
   // Options
-  if (command.options && command.options.length > 0) {
+  if (command.options && command.options.size > 0) {
     lines.push("\nOptions:");
-    for (const option of command.options) {
+    for (const option of command.options.values()) {
       const short =
         option.shortName !== undefined ? `-${option.shortName}, ` : "    ";
       const long = `--${option.name}`;
@@ -64,9 +64,9 @@ export function generateHelp<TContext extends object>(
   }
 
   // Subcommands
-  if (command.subcommands && command.subcommands.length > 0) {
+  if (command.subcommands && command.subcommands.size > 0) {
     lines.push("\nCommands:");
-    for (const subcommand of command.subcommands) {
+    for (const subcommand of command.subcommands.values()) {
       lines.push(`  ${subcommand.name.padEnd(20)} ${subcommand.description}`);
     }
     lines.push(
@@ -83,14 +83,14 @@ export function generateHelp<TContext extends object>(
  * @returns A formatted string listing the available commands.
  */
 export function generateCommandList<TContext extends object>(
-  commands: Command<TContext>[],
+  commands: Map<string, Command<TContext>>,
 ): string {
-  if (commands.length === 0) {
+  if (commands.size === 0) {
     return "No commands available.";
   }
 
   const lines: string[] = ["Available commands:"];
-  for (const command of commands) {
+  for (const command of commands.values()) {
     lines.push(`  ${command.name.padEnd(20)} ${command.description}`);
   }
 

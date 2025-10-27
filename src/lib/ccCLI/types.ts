@@ -104,30 +104,32 @@ export interface Command<TContext extends object> {
   name: string;
   /** A brief description of the command, shown in help messages. */
   description: string;
-  /** An array of argument definitions for the command. */
+  /** A map of argument definitions for the command, keyed by argument name. */
   args?: Argument[];
-  /** An array of option definitions for the command. */
-  options?: Option[];
+  /** A map of option definitions for the command, keyed by option name. */
+  options?: Map<string, Option>;
   /**
    * The function to execute when the command is run.
    * It receives an `ActionContext` object.
    * Should return a `Result` to indicate success or failure.
    */
   action?: (context: ActionContext<TContext>) => Result<void, CliError>;
-  /** An array of subcommands, allowing for nested command structures. */
-  subcommands?: Command<TContext>[];
+  /** A map of subcommands, allowing for nested command structures, keyed by command name. */
+  subcommands?: Map<string, Command<TContext>>;
 }
 
 // --- Parsing and Execution Internals ---
 
 /**
- * @interface ParsedInput
- * @description The raw output from the initial argument parsing stage.
+ * @interface ParseResult
+ * @description Enhanced parsing result that includes command resolution.
  */
-export interface ParsedInput {
-  /** The identified command path from the arguments. */
+export interface ParseResult<TContext extends object> {
+  /** The resolved command found during parsing. */
+  command: Command<TContext>;
+  /** The path to the resolved command. */
   commandPath: string[];
-  /** A record of raw option values. */
+  /** A record of parsed option values. */
   options: Record<string, unknown>;
   /** Any remaining arguments that were not parsed as part of the command path or options. */
   remaining: string[];

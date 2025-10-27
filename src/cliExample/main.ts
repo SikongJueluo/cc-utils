@@ -16,19 +16,19 @@ interface AppContext {
 // 2. Define individual commands
 const addCommand: Command<AppContext> = {
   name: "add",
-  description: "将两个数字相加",
+  description: "Adds two numbers together",
   args: [
-    { name: "a", description: "第一个数字", required: true },
-    { name: "b", description: "第二个数字", required: true },
+    { name: "a", description: "The first number", required: true },
+    { name: "b", description: "The second number", required: true },
   ],
   action: ({ args, context }): Result<void, CliError> => {
-    context.log(`在 '${context.appName}' 中执行 'add' 命令`);
+    context.log(`Executing 'add' command in '${context.appName}'`);
 
     const a = tonumber(args.a as string);
     const b = tonumber(args.b as string);
 
     if (a === undefined || b === undefined) {
-      print("错误: 参数必须是数字。");
+      print("Error: Arguments must be numbers.");
       return Ok.EMPTY;
     }
 
@@ -36,7 +36,7 @@ const addCommand: Command<AppContext> = {
     print(`${a} + ${b} = ${result}`);
 
     if (context.debugMode) {
-      context.log(`计算结果: ${result}`);
+      context.log(`Calculation result: ${result}`);
     }
     return Ok.EMPTY;
   },
@@ -44,19 +44,19 @@ const addCommand: Command<AppContext> = {
 
 const subtractCommand: Command<AppContext> = {
   name: "subtract",
-  description: "将第二个数字从第一个数字中减去",
+  description: "Subtracts the second number from the first",
   args: [
-    { name: "a", description: "被减数", required: true },
-    { name: "b", description: "减数", required: true },
+    { name: "a", description: "The minuend", required: true },
+    { name: "b", description: "The subtrahend", required: true },
   ],
   action: ({ args, context }): Result<void, CliError> => {
-    context.log(`在 '${context.appName}' 中执行 'subtract' 命令`);
+    context.log(`Executing 'subtract' command in '${context.appName}'`);
 
     const a = tonumber(args.a as string);
     const b = tonumber(args.b as string);
 
     if (a === undefined || b === undefined) {
-      print("错误: 参数必须是数字。");
+      print("Error: Arguments must be numbers.");
       return Ok.EMPTY;
     }
 
@@ -68,18 +68,29 @@ const subtractCommand: Command<AppContext> = {
 
 const greetCommand: Command<AppContext> = {
   name: "greet",
-  description: "打印问候语",
-  options: [
-    {
-      name: "name",
-      shortName: "n",
-      description: "要问候的名字",
-      defaultValue: "World",
-    },
-    { name: "times", shortName: "t", description: "重复次数", defaultValue: 1 },
-  ],
+  description: "Prints a greeting message",
+  options: new Map([
+    [
+      "name",
+      {
+        name: "name",
+        shortName: "n",
+        description: "The name to greet",
+        defaultValue: "World",
+      },
+    ],
+    [
+      "times",
+      {
+        name: "times",
+        shortName: "t",
+        description: "Number of times to repeat",
+        defaultValue: 1,
+      },
+    ],
+  ]),
   action: ({ options, context }): Result<void, CliError> => {
-    context.log(`在 '${context.appName}' 中执行 'greet' 命令`);
+    context.log(`Executing 'greet' command in '${context.appName}'`);
 
     const name = options.name as string;
     const times = tonumber(options.times as string) ?? 1;
@@ -88,7 +99,7 @@ const greetCommand: Command<AppContext> = {
       print(`Hello, ${name}!`);
 
       if (context.debugMode && times > 1) {
-        context.log(`问候 ${i}/${times}`);
+        context.log(`Greeting ${i}/${times}`);
       }
     }
     return Ok.EMPTY;
@@ -98,67 +109,80 @@ const greetCommand: Command<AppContext> = {
 // Math subcommands group
 const mathCommand: Command<AppContext> = {
   name: "math",
-  description: "数学运算命令",
-  subcommands: [addCommand, subtractCommand],
+  description: "Mathematical operations",
+  subcommands: new Map([
+    ["add", addCommand],
+    ["subtract", subtractCommand],
+  ]),
 };
 
 // Config command with nested subcommands
 const configShowCommand: Command<AppContext> = {
   name: "show",
-  description: "显示当前配置",
+  description: "Show current configuration",
   action: ({ context }): Result<void, CliError> => {
-    print(`应用名称: ${context.appName}`);
-    print(`调试模式: ${context.debugMode ? "开启" : "关闭"}`);
+    print(`App Name: ${context.appName}`);
+    print(`Debug Mode: ${context.debugMode ? "on" : "off"}`);
     return Ok.EMPTY;
   },
 };
 
 const configSetCommand: Command<AppContext> = {
   name: "set",
-  description: "设置配置项",
+  description: "Set a configuration item",
   args: [
-    { name: "key", description: "配置键", required: true },
-    { name: "value", description: "配置值", required: true },
+    { name: "key", description: "The configuration key", required: true },
+    { name: "value", description: "The configuration value", required: true },
   ],
   action: ({ args, context }): Result<void, CliError> => {
     const key = args.key as string;
     const value = args.value as string;
 
-    context.log(`设置配置: ${key} = ${value}`);
-    print(`配置 '${key}' 已设置为 '${value}'`);
+    context.log(`Setting config: ${key} = ${value}`);
+    print(`Config '${key}' has been set to '${value}'`);
     return Ok.EMPTY;
   },
 };
 
 const configCommand: Command<AppContext> = {
   name: "config",
-  description: "配置管理命令",
-  subcommands: [configShowCommand, configSetCommand],
+  description: "Configuration management commands",
+  subcommands: new Map([
+    ["show", configShowCommand],
+    ["set", configSetCommand],
+  ]),
 };
 
 // 3. Define root command
 const rootCommand: Command<AppContext> = {
   name: "calculator",
-  description: "一个功能丰富的计算器程序",
-  options: [
-    {
-      name: "debug",
-      shortName: "d",
-      description: "启用调试模式",
-      defaultValue: false,
-    },
-  ],
-  subcommands: [mathCommand, greetCommand, configCommand],
+  description: "A feature-rich calculator program",
+  options: new Map([
+    [
+      "debug",
+      {
+        name: "debug",
+        shortName: "d",
+        description: "Enable debug mode",
+        defaultValue: false,
+      },
+    ],
+  ]),
+  subcommands: new Map([
+    ["math", mathCommand],
+    ["greet", greetCommand],
+    ["config", configCommand],
+  ]),
   action: ({ options, context }): Result<void, CliError> => {
     // Update debug mode from command line option
     const debugFromOption = options.debug as boolean;
     if (debugFromOption) {
       context.debugMode = true;
-      context.log("调试模式已启用");
+      context.log("Debug mode enabled");
     }
 
-    print(`欢迎使用 ${context.appName}!`);
-    print("使用 --help 查看可用命令");
+    print(`Welcome to ${context.appName}!`);
+    print("Use --help to see available commands");
     return Ok.EMPTY;
   },
 };

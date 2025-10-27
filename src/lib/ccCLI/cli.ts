@@ -5,8 +5,7 @@ import {
   Argument,
   Option,
   CliError,
-  ParsedInput,
-  CommandResolution,
+  ParseResult,
 } from "./types";
 import {
   parseArguments,
@@ -41,56 +40,57 @@ export function createCli<TContext extends object>(
 
   return (argv: string[]): void => {
     // Check for top-level help flags before any parsing.
-    if (shouldShowHelp(argv)) {
+    if (argv[0]?.startsWith("--help") || argv[0]?.startsWith("-h")) {
       writer(generateHelp(rootCommand));
       return;
     }
 
-    const parsedInput = parseArguments(argv);
-    const executionResult = findCommand(
-      rootCommand,
-      parsedInput.commandPath,
-    ).andThen((resolution) =>
-      processAndExecute(resolution, parsedInput, globalContext, (msg: string) =>
-        writer(msg),
-      ),
+    const parseResult = parseArguments(argv, rootCommand);
+
+    if (parseResult.isErr()) {
+      const error = parseResult.error;
+      writer(formatError(error, rootCommand));
+
+      // If it was an unknown command, suggest alternatives.
+      if (error.kind === "UnknownCommand") {
+        // Find parent command to suggest alternatives
+        const parentResult = parseArguments(argv.slice(0, -1), rootCommand);
+        if (parentResult.isOk() && parentResult.value.command.subcommands) {
+          writer(generateCommandList(parentResult.value.command.subcommands));
+        }
+      }
+      return;
+    }
+
+    const executionResult = processAndExecute(
+      parseResult.value,
+      globalContext,
+      (msg: string) => writer(msg),
     );
 
     if (executionResult.isErr()) {
       const error = executionResult.error;
       writer(formatError(error, rootCommand));
-
-      // If it was an unknown command, suggest alternatives.
-      if (error.kind === "UnknownCommand") {
-        const parent = findCommand(
-          rootCommand,
-          parsedInput.commandPath.slice(0, -1),
-        );
-        if (parent.isOk() && parent.value.command.subcommands) {
-          writer(generateCommandList(parent.value.command.subcommands));
-        }
-      }
     }
   };
 }
 
 /**
  * Processes the parsed input and executes the resolved command.
- * @param resolution The resolved command and its context.
- * @param parsedInput The raw parsed command-line input.
+ * @param parseResult The result from parsing with integrated command resolution.
  * @param globalContext The global context for the CLI.
+ * @param writer Function to output messages.
  * @returns A `Result` indicating the success or failure of the execution.
  */
 function processAndExecute<TContext extends object>(
-  resolution: CommandResolution<TContext>,
-  parsedInput: ParsedInput,
+  parseResult: ParseResult<TContext>,
   globalContext: TContext | undefined,
   writer: (message: string) => void,
 ): Result<void, CliError> {
-  const { command, commandPath, remainingArgs } = resolution;
+  const { command, commandPath, options, remaining } = parseResult;
 
   // Handle requests for help on a specific command.
-  if (shouldShowHelp([...remainingArgs, ...Object.keys(parsedInput.options)])) {
+  if (shouldShowHelp([...remaining, ...Object.keys(options)])) {
     writer(generateHelp(command, commandPath));
     return Ok.EMPTY;
   }
@@ -98,7 +98,7 @@ function processAndExecute<TContext extends object>(
   // If a command has subcommands but no action, show its help page.
   if (
     command.subcommands &&
-    command.subcommands.length > 0 &&
+    command.subcommands.size > 0 &&
     command.action === undefined
   ) {
     writer(generateHelp(command, commandPath));
@@ -113,20 +113,19 @@ function processAndExecute<TContext extends object>(
     });
   }
 
-  return processArguments(
-    command.args ?? [],
-    remainingArgs,
-    parsedInput.remaining,
-  )
+  return processArguments(command.args ?? [], remaining)
     .andThen((args) => {
-      return processOptions(command.options ?? [], parsedInput.options).map(
-        (options) => ({ args, options }),
-      );
+      return processOptions(
+        command.options !== undefined
+          ? Array.from(command.options.values())
+          : [],
+        options,
+      ).map((processedOptions) => ({ args, options: processedOptions }));
     })
-    .andThen(({ args, options }) => {
+    .andThen(({ args, options: processedOptions }) => {
       const context: ActionContext<TContext> = {
         args,
-        options,
+        options: processedOptions,
         context: globalContext!,
       };
       // Finally, execute the command's action.
@@ -135,59 +134,21 @@ function processAndExecute<TContext extends object>(
 }
 
 /**
- * Finds the target command based on a given path.
- * @param rootCommand The command to start searching from.
- * @param commandPath An array of strings representing the path to the command.
- * @returns A `Result` containing the `CommandResolution` or an `UnknownCommandError`.
- */
-function findCommand<TContext extends object>(
-  rootCommand: Command<TContext>,
-  commandPath: string[],
-): Result<CommandResolution<TContext>, CliError> {
-  let currentCommand = rootCommand;
-  const resolvedPath: string[] = [];
-  let i = 0;
-
-  for (const name of commandPath) {
-    const subcommand = currentCommand.subcommands?.find(
-      (cmd) => cmd.name === name,
-    );
-    if (!subcommand) {
-      // Part of the path was not a valid command, so the rest are arguments.
-      return new Err({ kind: "UnknownCommand", commandName: name });
-    }
-    currentCommand = subcommand;
-    resolvedPath.push(name);
-    i++;
-  }
-
-  const remainingArgs = commandPath.slice(i);
-  return new Ok({
-    command: currentCommand,
-    commandPath: resolvedPath,
-    remainingArgs,
-  });
-}
-
-/**
  * Processes and validates command arguments from the raw input.
  * @param argDefs The argument definitions for the command.
- * @param remainingArgs The positional arguments captured during command resolution.
- * @param additionalArgs Any extra arguments parsed after options.
+ * @param remainingArgs The remaining positional arguments.
  * @returns A `Result` with the processed arguments record or a `MissingArgumentError`.
  */
 function processArguments(
   argDefs: Argument[],
   remainingArgs: string[],
-  additionalArgs: string[],
 ): Result<Record<string, unknown>, CliError> {
   const args: Record<string, unknown> = {};
-  const allArgs = [...remainingArgs, ...additionalArgs];
 
   for (let i = 0; i < argDefs.length; i++) {
     const argDef = argDefs[i];
-    if (i < allArgs.length) {
-      args[argDef.name] = allArgs[i];
+    if (i < remainingArgs.length) {
+      args[argDef.name] = remainingArgs[i];
     }
   }
 

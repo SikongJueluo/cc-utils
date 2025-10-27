@@ -1,31 +1,108 @@
 import { Ok, Err, Result } from "../thirdparty/ts-result-es";
-import { ParsedInput, MissingArgumentError, MissingOptionError } from "./types";
+import {
+  ParseResult,
+  MissingArgumentError,
+  MissingOptionError,
+  Command,
+  Option,
+  CliError,
+  CommandResolution,
+} from "./types";
+
+// Cache class to handle option maps with proper typing
+class OptionMapCache {
+  private cache = new WeakMap<
+    object,
+    {
+      optionMap: Map<string, Option>;
+      shortNameMap: Map<string, string>;
+    }
+  >();
+
+  get<TContext extends object>(command: Command<TContext>) {
+    return this.cache.get(command);
+  }
+
+  set<TContext extends object>(
+    command: Command<TContext>,
+    value: {
+      optionMap: Map<string, Option>;
+      shortNameMap: Map<string, string>;
+    },
+  ) {
+    this.cache.set(command, value);
+  }
+}
+
+// Lazy option map builder with global caching
+function getOptionMaps<TContext extends object>(
+  optionCache: OptionMapCache,
+  command: Command<TContext>,
+) {
+  // Quick check: if command has no options, return empty maps
+  if (!command.options || command.options.size === 0) {
+    return {
+      optionMap: new Map<string, Option>(),
+      shortNameMap: new Map<string, string>(),
+    };
+  }
+
+  let cached = optionCache.get(command);
+  if (cached !== undefined) {
+    return cached;
+  }
+
+  const optionMap = new Map<string, Option>();
+  const shortNameMap = new Map<string, string>();
+
+  for (const [optionName, option] of command.options) {
+    optionMap.set(optionName, option);
+    if (option.shortName !== undefined && option.shortName !== null) {
+      shortNameMap.set(option.shortName, optionName);
+    }
+  }
+
+  cached = { optionMap, shortNameMap };
+  optionCache.set(command, cached);
+  return cached;
+}
 
 /**
- * Parses command line arguments into a structured format.
- * This function does not validate arguments or options, it only parses the raw input.
- * @param argv Array of command line arguments (e.g., from `os.pullEvent`).
- * @returns A `ParsedInput` object containing the command path, options, and remaining args.
+ * Parses command line arguments with integrated command resolution.
+ * This function dynamically finds the target command during parsing and uses
+ * the command's option definitions for intelligent option handling.
+ * @param argv Array of command line arguments.
+ * @param rootCommand The root command to start parsing from.
+ * @returns A `Result` containing the `ParseResult` or a `CliError`.
  */
-export function parseArguments(argv: string[]): ParsedInput {
-  const result: ParsedInput = {
+export function parseArguments<TContext extends object>(
+  argv: string[],
+  rootCommand: Command<TContext>,
+): Result<ParseResult<TContext>, CliError> {
+  const result: ParseResult<TContext> = {
+    command: rootCommand,
     commandPath: [],
     options: {},
     remaining: [],
   };
 
+  let currentCommand = rootCommand;
   let i = 0;
   let inOptions = false;
+
+  const optionMapCache = new OptionMapCache();
+  const getCurrentOptionMaps = () =>
+    getOptionMaps(optionMapCache, currentCommand);
 
   while (i < argv.length) {
     const arg = argv[i];
 
-    if (arg === undefined) {
+    if (arg === undefined || arg === null) {
       i++;
       continue;
     }
 
-    // Handle double dash (--) - everything after is treated as a remaining argument.
+    // Handle double dash (--) - everything after is treated as a remaining argument
     if (arg === "--") {
       result.remaining.push(...argv.slice(i + 1));
       break;
@@ -44,15 +121,20 @@ export function parseArguments(argv: string[]): ParsedInput {
       } else {
         // --option [value] format
         const optionName = arg.slice(2);
-        if (
-          i + 1 < argv.length &&
-          argv[i + 1] !== undefined &&
-          !argv[i + 1].startsWith("-")
-        ) {
-          result.options[optionName] = argv[i + 1];
+        const optionDef = getCurrentOptionMaps().optionMap.get(optionName);
+
+        // Check if this is a known boolean option or if next arg looks like a value
+        const nextArg = argv[i + 1];
+        const isKnownBooleanOption =
+          optionDef !== undefined && optionDef.defaultValue === undefined;
+        const nextArgLooksLikeValue =
+          nextArg !== undefined && nextArg !== null && !nextArg.startsWith("-");
+
+        if (nextArgLooksLikeValue && !isKnownBooleanOption) {
+          result.options[optionName] = nextArg;
           i++; // Skip the value argument
         } else {
-          // Boolean flag
+          // Boolean flag or no value available
           result.options[optionName] = true;
         }
       }
@@ -60,25 +142,42 @@ export function parseArguments(argv: string[]): ParsedInput {
     // Handle short options (-o or -o value)
     else if (arg.startsWith("-") && arg.length > 1) {
       inOptions = true;
-      const optionName = arg.slice(1);
+      const shortName = arg.slice(1);
 
-      if (
-        i + 1 < argv.length &&
-        argv[i + 1] !== undefined &&
-        !argv[i + 1].startsWith("-")
-      ) {
-        result.options[optionName] = argv[i + 1];
+      // Get option maps for the new command (lazy loaded and cached)
+      const maps = getCurrentOptionMaps();
+      const optionName = maps.shortNameMap.get(shortName) ?? shortName;
+      const optionDef = maps.optionMap.get(optionName);
+
+      // Check if this is a known boolean option or if next arg looks like a value
+      const nextArg = argv[i + 1];
+      const isKnownBooleanOption =
+        optionDef !== undefined && optionDef.defaultValue === undefined;
+      const nextArgLooksLikeValue =
+        nextArg !== undefined && nextArg !== null && !nextArg.startsWith("-");
+
+      if (nextArgLooksLikeValue && !isKnownBooleanOption) {
+        result.options[optionName] = nextArg;
         i++; // Skip the value argument
       } else {
-        // Boolean flag
+        // Boolean flag or no value available
         result.options[optionName] = true;
       }
     }
-    // Handle positional arguments and commands
+    // Handle positional arguments and command resolution
     else {
       if (!inOptions) {
-        // Before any options, treat as part of the command path
-        result.commandPath.push(arg);
+        // Try to find this as a subcommand of the current command
+        const subcommand = currentCommand.subcommands?.get(arg);
+        if (subcommand !== undefined) {
+          // Found a subcommand, move deeper
+          currentCommand = subcommand;
+          result.command = currentCommand;
+          result.commandPath.push(arg);
+        } else {
+          // Not a subcommand, treat as remaining argument
+          result.remaining.push(arg);
+        }
       } else {
         // After options have started, treat as a remaining argument
         result.remaining.push(arg);
@@ -88,7 +187,40 @@ export function parseArguments(argv: string[]): ParsedInput {
     i++;
   }
 
-  return result;
+  return new Ok(result);
+}
+
+/**
+ * Finds the target command based on a given path.
+ * @param rootCommand The command to start searching from.
+ * @param commandPath An array of strings representing the path to the command.
+ * @returns A `Result` containing the `CommandResolution` or an `UnknownCommandError`.
+ */
+export function findCommand<TContext extends object>(
+  rootCommand: Command<TContext>,
+  commandPath: string[],
+): Result<CommandResolution<TContext>, CliError> {
+  let currentCommand = rootCommand;
+  const resolvedPath: string[] = [];
+  let i = 0;
+
+  for (const name of commandPath) {
+    const subcommand = currentCommand.subcommands?.get(name);
+    if (!subcommand) {
+      // Part of the path was not a valid command, so the rest are arguments.
+      return new Err({ kind: "UnknownCommand", commandName: name });
+    }
+    currentCommand = subcommand;
+    resolvedPath.push(name);
+    i++;
+  }
+
+  const remainingArgs = commandPath.slice(i);
+  return new Ok({
+    command: currentCommand,
+    commandPath: resolvedPath,
+    remainingArgs,
+  });
 }
 
 /**
