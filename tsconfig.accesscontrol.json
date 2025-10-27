@@ -1,9 +1,0 @@
-{
-  "$schema": "https://raw.githubusercontent.com/MCJack123/TypeScriptToLua/master/tsconfig-schema.json",
-  "extends": "./tsconfig.json",
-  "tstl": {
-    "luaBundle": "build/accesscontrol.lua",
-    "luaBundleEntry": "src/accesscontrol/main.ts"
-  },
-  "include": ["src/accesscontrol/*.ts"]
-}

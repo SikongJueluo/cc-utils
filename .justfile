@@ -5,21 +5,21 @@ sync-path := if os_family() == "windows" { "/cygdrive/c/Users/sikongjueluo/AppDa
 build: build-autocraft build-accesscontrol build-test build-example sync
 
 build-autocraft:
-    pnpm tstl -p ./tsconfig.autocraft.json
+    pnpm tstl -p ./targets/tsconfig.autocraft.json
 
 build-accesscontrol:
-    pnpm tstl -p ./tsconfig.accesscontrol.json
+    pnpm tstl -p ./targets/tsconfig.accesscontrol.json
 
 build-test:
-    pnpm tstl -p ./tsconfig.test.json
+    pnpm tstl -p ./targets/tsconfig.test.json
 
 build-example: build-tuiExample build-cliExample
 
 build-tuiExample:
-    pnpm tstl -p ./tsconfig.tuiExample.json
+    pnpm tstl -p ./targets/tsconfig.tuiExample.json
 
 build-cliExample:
-    pnpm tstl -p ./tsconfig.cliExample.json
+    pnpm tstl -p ./targets/tsconfig.cliExample.json
 
 sync:
     rsync --delete -r "./build/" "{{ sync-path }}"

@@ -1,0 +1,9 @@
+{
+  "$schema": "https://raw.githubusercontent.com/MCJack123/TypeScriptToLua/master/tsconfig-schema.json",
+  "extends": "../tsconfig.json",
+  "tstl": {
+    "luaBundle": "../build/autocraft.lua",
+    "luaBundleEntry": "../src/autocraft/main.ts"
+  },
+  "include": ["../src/autocraft/*.ts"]
+}

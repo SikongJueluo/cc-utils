@@ -1,0 +1,9 @@
+{
+  "$schema": "https://raw.githubusercontent.com/MCJack123/TypeScriptToLua/master/tsconfig-schema.json",
+  "extends": "../tsconfig.json",
+  "tstl": {
+    "luaBundle": "../build/cliExample.lua",
+    "luaBundleEntry": "../src/cliExample/main.ts"
+  },
+  "include": ["../src/cliExample/*.ts", "../src/lib/ccCLI/*.ts"]
+}
