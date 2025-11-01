@@ -38,7 +38,7 @@ export type ChatError =
  * Base interface for chat messages and toasts
  */
 interface ChatBasicMessage {
-  message: string | MinecraftTextComponent;
+  message: string | MinecraftTextComponent | MinecraftTextComponent[];
   prefix?: string;
   brackets?: string;
   bracketColor?: string;
@@ -235,7 +235,10 @@ export class ChatManager {
         } else {
           // Handle MinecraftTextComponent for private message
           [success, errorMsg] = chatbox.sendFormattedMessageToPlayer(
-            JSON.stringify(message.message),
+            textutils.serialiseJSON(message.message, {
+              unicode_strings: true,
+              allow_repetitions: true,
+            }),
             message.targetPlayer,
             message.prefix,
             message.brackets,
@@ -258,7 +261,10 @@ export class ChatManager {
         } else {
           // Handle MinecraftTextComponent for global message
           [success, errorMsg] = chatbox.sendFormattedMessage(
-            JSON.stringify(message.message),
+            textutils.serialiseJSON(message.message, {
+              unicode_strings: true,
+              allow_repetitions: true,
+            }),
             message.prefix,
             message.brackets,
             message.bracketColor,
@@ -329,11 +335,17 @@ export class ChatManager {
         const messageJson =
           typeof toast.message === "string"
             ? toast.message
-            : JSON.stringify(toast.message);
+            : textutils.serialiseJSON(toast.message, {
+                unicode_strings: true,
+                allow_repetitions: true,
+              });
         const titleJson =
           typeof toast.title === "string"
             ? toast.title
-            : JSON.stringify(toast.title);
+            : textutils.serialiseJSON(toast.title, {
+                unicode_strings: true,
+                allow_repetitions: true,
+              });
 
         [success, errorMsg] = chatbox.sendFormattedToastToPlayer(
           messageJson,
@@ -426,7 +438,7 @@ export class ChatManager {
   private receiveLoop(): void {
     while (this.isRunning) {
       try {
-        // Listen for chatbox_message events (note: event name might be "chat" based on event.ts)
+        // Listen for chatbox_message events
         const event = pullEventAs(ChatBoxEvent, "chat");
 
         if (event) {
