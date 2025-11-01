@@ -1,6 +1,7 @@
 import { Queue } from "./datatype/Queue";
 import { ChatBoxEvent, pullEventAs } from "./event";
 import { Result, Ok, Err } from "./thirdparty/ts-result-es";
+import { gTimerManager } from "./TimerManager";
 
 /**
  * Chat manager error types
@@ -50,7 +51,7 @@ interface ChatBasicMessage {
  */
 export interface ChatToast extends ChatBasicMessage {
   /** Target player username to send the toast to */
-  username: string;
+  targetPlayer: string;
   /** Title of the toast notification */
   title: string;
 }
@@ -87,6 +88,9 @@ export class ChatManager {
   /** Flag
  to control the running state of loops */
   private isRunning = false;
+
+  /** Lua thread for managing chat operations */
+  private thread?: LuaThread;
 
   /**
    * Constructor - initializes the ChatManager with available ChatBox peripherals
@@ -183,33 +187,18 @@ export class ChatManager {
 
     this.idleChatboxes[chatboxIndex] = false;
 
-    try {
-      // Set timer to mark chatbox as idle after 1 second cooldown
-      const timerId = os.startTimer(1);
-
-      // Start a coroutine to wait for the timer and mark chatbox as idle
-      coroutine.resume(
-        coroutine.create(() => {
-          while (true) {
-            const [_eventName, id] = os.pullEvent("timer");
-            if (id === timerId) {
-              this.idleChatboxes[chatboxIndex] = true;
-              break;
-            }
-          }
-        }),
-      );
-
-      return new Ok(undefined);
-    } catch (error) {
-      // Revert chatbox state if timer setup fails
-      this.idleChatboxes[chatboxIndex] = true;
+    if (!gTimerManager.status()) {
       return new Err({
         kind: "ChatManager",
-        reason: `Failed to set chatbox timer: ${String(error)}`,
-        chatboxIndex,
+        reason: "TimerManager is not running",
       });
     }
+
+    gTimerManager.setTimeOut(1, () => {
+      this.idleChatboxes[chatboxIndex] = true;
+    });
+
+    return Ok.EMPTY;
   }
 
   /**
@@ -328,7 +317,7 @@ export class ChatManager {
         [success, errorMsg] = chatbox.sendToastToPlayer(
           toast.message,
           toast.title,
-          toast.username,
+          toast.targetPlayer,
           toast.prefix,
           toast.brackets,
           toast.bracketColor,
@@ -349,7 +338,7 @@ export class ChatManager {
         [success, errorMsg] = chatbox.sendFormattedToastToPlayer(
           messageJson,
           titleJson,
-          toast.username,
+          toast.targetPlayer,
           toast.prefix,
           toast.brackets,
           toast.bracketColor,
@@ -489,7 +478,7 @@ export class ChatManager {
    * Useful when you need to run other code alongside the ChatManager
    * @returns Result indicating success or failure of async startup
    */
-  public runAsync(): Result<void, ChatManagerError> {
+  public runAsync(): Result<LuaThread, ChatManagerError> {
     if (this.isRunning) {
       return new Err({
         kind: "ChatManager",
@@ -499,18 +488,17 @@ export class ChatManager {
 
     try {
       this.isRunning = true;
+      this.thread = coroutine.create(() => {
+        const result = this.run();
+        if (result.isErr()) {
+          print(`ChatManager async error: ${result.error.reason}`);
+        }
+      });
 
       // Start the run method in a separate coroutine
-      coroutine.resume(
-        coroutine.create(() => {
-          const result = this.run();
-          if (result.isErr()) {
-            print(`ChatManager async error: ${result.error.reason}`);
-          }
-        }),
-      );
+      coroutine.resume(this.thread);
 
-      return new Ok(undefined);
+      return new Ok(this.thread);
     } catch (error) {
       this.isRunning = false;
       return new Err({

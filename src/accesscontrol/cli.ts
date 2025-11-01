@@ -1,3 +1,5 @@
+import { Command, createCli } from "@/lib/ccCLI";
+import { Ok } from "@/lib/thirdparty/ts-result-es";
 import { CCLog } from "@/lib/ccLog";
 import {
   AccessConfig,
@@ -5,473 +7,267 @@ import {
   loadConfig,
   saveConfig,
 } from "./config";
-import { ChatBoxEvent, pullEventAs } from "@/lib/event";
 import { parseBoolean } from "@/lib/common";
 
-// CLI命令接口
-interface CLICommand {
-  name: string;
-  description: string;
-  usage: string;
-  execute: (args: string[], executor: string, context: CLIContext) => CLIResult;
-}
-
-// CLI执行结果
-interface CLIResult {
-  success: boolean;
-  message?: string;
-  shouldSaveConfig?: boolean;
-  config?: AccessConfig;
-}
-
-// CLI上下文
-interface CLIContext {
+// 1. Define AppContext
+export interface AppContext {
   configFilepath: string;
   reloadConfig: () => void;
-  log: CCLog;
-  chatBox: ChatBoxPeripheral;
+  logger: CCLog;
+  print: (message: string) => void;
 }
 
 function getGroupNames(config: AccessConfig) {
-  return config.usersGroups.flatMap((value) => value.groupName);
+  return config.usersGroups.map((value) => value.groupName);
 }
 
-// 基础命令处理器
-class CLICommandProcessor {
-  private commands = new Map<string, CLICommand>();
-  private context: CLIContext;
+// 2. Define Commands
 
-  constructor(context: CLIContext) {
-    this.context = context;
-    this.initializeCommands();
-  }
-
-  private initializeCommands() {
-    // 注册所有命令
-    this.registerCommand(new AddCommand());
-    this.registerCommand(new DelCommand());
-    this.registerCommand(new ListCommand());
-    this.registerCommand(new SetCommand());
-    this.registerCommand(new EditCommand());
-    this.registerCommand(new ShowConfigCommand());
-    this.registerCommand(new HelpCommand());
-  }
-
-  private registerCommand(command: CLICommand) {
-    this.commands.set(command.name, command);
-  }
-
-  public processCommand(message: string, executor: string): CLIResult {
-    const params = message.split(" ");
-
-    // 移除 "@AC" 前缀
-    if (params.length < 2) {
-      return this.getHelpCommand().execute([], executor, this.context);
-    }
-
-    const commandName = params[1].replace("/", ""); // 移除 "/" 前缀
-    const args = params.slice(2);
-
-    const command = this.commands.get(commandName);
-    if (!command) {
-      return {
-        success: false,
-        message: `Unknown command: ${commandName}`,
-      };
-    }
-
-    const ret = command.execute(args, executor, this.context);
-    return ret;
-  }
-
-  private getHelpCommand(): CLICommand {
-    return this.commands.get("help")!;
-  }
-
-  public sendResponse(result: CLIResult, executor: string) {
-    if (result.message != null && result.message.length > 0) {
-      this.context.chatBox.sendMessageToPlayer(
-        result.message,
-        executor,
-        "AccessControl",
-        "[]",
-        undefined,
-        undefined,
-        true,
-      );
-    }
-
-    if (result.shouldSaveConfig === true) {
-      saveConfig(result.config!, this.context.configFilepath);
-      this.context.reloadConfig();
-    }
-  }
-}
-
-// 添加用户命令
-class AddCommand implements CLICommand {
-  name = "add";
-  description = "Add player to group";
-  usage = "add <userGroup> <playerName>";
-
-  execute(args: string[], _executor: string, context: CLIContext): CLIResult {
-    if (args.length !== 2) {
-      return {
-        success: false,
-        message: `Usage: ${this.usage}`,
-      };
-    }
-
-    const [groupName, playerName] = args;
-    const config: AccessConfig = loadConfig(context.configFilepath)!;
+const addCommand: Command<AppContext> = {
+  name: "add",
+  description: "Add player to group",
+  args: [
+    {
+      name: "userGroup",
+      description: "Group to add player to",
+      required: true,
+    },
+    { name: "playerName", description: "Player to add", required: true },
+  ],
+  action: ({ args, context }) => {
+    const [groupName, playerName] = [
+      args.userGroup as string,
+      args.playerName as string,
+    ];
+    const config = loadConfig(context.configFilepath)!;
 
     if (groupName === "admin") {
-      config.adminGroupConfig.groupUsers.push(playerName);
-      return {
-        success: true,
-        message: `Add player ${playerName} to admin`,
-        shouldSaveConfig: true,
-        config,
-      };
-    }
-
-    const groupNames = getGroupNames(config);
-
-    if (!groupNames.includes(groupName)) {
-      return {
-        success: false,
-        message: `Invalid group: ${groupName}. Available groups: ${groupNames.join(
-          ", ",
-        )}`,
-      };
-    }
-
-    const groupConfig = config.usersGroups.find(
-      (value) => value.groupName === groupName,
-    );
-
-    if (!groupConfig) {
-      return {
-        success: false,
-        message: `Group ${groupName} not found`,
-      };
-    }
-
-    if (groupConfig.groupUsers === undefined) {
-      groupConfig.groupUsers = [playerName];
+      if (!config.adminGroupConfig.groupUsers.includes(playerName)) {
+        config.adminGroupConfig.groupUsers.push(playerName);
+      }
     } else {
-      groupConfig.groupUsers.push(playerName);
+      const group = config.usersGroups.find((g) => g.groupName === groupName);
+      if (!group) {
+        const groupNames = getGroupNames(config);
+        context.print(
+          `Invalid group: ${groupName}. Available groups: ${groupNames.join(", ")}`,
+        );
+        return Ok.EMPTY;
+      }
+      group.groupUsers ??= [];
+      if (!group.groupUsers.includes(playerName)) {
+        group.groupUsers.push(playerName);
+      }
     }
 
-    return {
-      success: true,
-      message: `Add player ${playerName} to ${groupConfig.groupName}`,
-      shouldSaveConfig: true,
-      config,
-    };
-  }
-}
+    saveConfig(config, context.configFilepath);
+    context.reloadConfig();
+    context.print(`Added player ${playerName} to ${groupName}`);
+    return Ok.EMPTY;
+  },
+};
 
-// 删除用户命令
-class DelCommand implements CLICommand {
-  name = "del";
-  description = "Delete player from group";
-  usage = "del <userGroup> <playerName>";
-
-  execute(args: string[], _executor: string, context: CLIContext): CLIResult {
-    if (args.length !== 2) {
-      return {
-        success: false,
-        message: `Usage: ${this.usage}`,
-      };
-    }
-
-    const [groupName, playerName] = args;
+const delCommand: Command<AppContext> = {
+  name: "del",
+  description: "Delete player from group",
+  args: [
+    {
+      name: "userGroup",
+      description: "Group to delete player from",
+      required: true,
+    },
+    { name: "playerName", description: "Player to delete", required: true },
+  ],
+  action: ({ args, context }) => {
+    const [groupName, playerName] = [
+      args.userGroup as string,
+      args.playerName as string,
+    ];
 
     if (groupName === "admin") {
-      return {
-        success: false,
-        message: "Could't delete admin, please edit config",
-      };
+      context.print("Could not delete admin, please edit config file.");
+      return Ok.EMPTY;
     }
 
-    const config: AccessConfig = loadConfig(context.configFilepath)!;
-    const groupNames = getGroupNames(config);
+    const config = loadConfig(context.configFilepath)!;
+    const group = config.usersGroups.find((g) => g.groupName === groupName);
 
-    if (!groupNames.includes(groupName)) {
-      return {
-        success: false,
-        message: `Invalid group: ${groupName}. Available groups: ${groupNames.join(
-          ", ",
-        )}`,
-      };
-    }
-
-    const groupConfig = config.usersGroups.find(
-      (value) => value.groupName === groupName,
-    );
-
-    if (!groupConfig) {
-      return {
-        success: false,
-        message: `Group ${groupName} not found`,
-      };
-    }
-
-    if (groupConfig.groupUsers === undefined) {
-      groupConfig.groupUsers = [];
-    } else {
-      groupConfig.groupUsers = groupConfig.groupUsers.filter(
-        (user) => user !== playerName,
+    if (!group) {
+      const groupNames = getGroupNames(config);
+      context.print(
+        `Invalid group: ${groupName}. Available groups: ${groupNames.join(", ")}`,
       );
+      return Ok.EMPTY;
     }
 
-    return {
-      success: true,
-      message: `Delete ${groupConfig.groupName} ${playerName}`,
-      shouldSaveConfig: true,
-      config,
-    };
-  }
-}
+    if (group.groupUsers !== undefined) {
+      group.groupUsers = group.groupUsers.filter((user) => user !== playerName);
+    }
 
-// 列表命令
-class ListCommand implements CLICommand {
-  name = "list";
-  description = "List all players with their groups";
-  usage = "list";
+    saveConfig(config, context.configFilepath);
+    context.reloadConfig();
+    context.print(`Deleted player ${playerName} from ${groupName}`);
+    return Ok.EMPTY;
+  },
+};
 
-  execute(_args: string[], _executor: string, context: CLIContext): CLIResult {
+const listCommand: Command<AppContext> = {
+  name: "list",
+  description: "List all players with their groups",
+  action: ({ context }) => {
     const config = loadConfig(context.configFilepath)!;
     let message = `Admins : [ ${config.adminGroupConfig.groupUsers.join(", ")} ]\n`;
-
     for (const groupConfig of config.usersGroups) {
       const users = groupConfig.groupUsers ?? [];
       message += `${groupConfig.groupName} : [ ${users.join(", ")} ]\n`;
     }
+    context.print(message.trim());
+    return Ok.EMPTY;
+  },
+};
 
-    return {
-      success: true,
-      message: message.trim(),
-    };
-  }
-}
-
-// 设置命令
-class SetCommand implements CLICommand {
-  name = "set";
-  description = "Config access control settings";
-  usage = "set <option> <value>";
-
-  execute(args: string[], _executor: string, context: CLIContext): CLIResult {
-    if (args.length !== 2) {
-      return {
-        success: false,
-        message: `Usage: ${this.usage}\nOptions: warnInterval, detectInterval, detectRange`,
-      };
-    }
-
-    const [option, valueStr] = args;
+const setCommand: Command<AppContext> = {
+  name: "set",
+  description: "Config access control settings",
+  args: [
+    {
+      name: "option",
+      description: "Option to set (warnInterval, detectInterval, detectRange)",
+      required: true,
+    },
+    { name: "value", description: "Value to set", required: true },
+  ],
+  action: ({ args, context }) => {
+    const [option, valueStr] = [args.option as string, args.value as string];
     const value = parseInt(valueStr);
 
     if (isNaN(value)) {
-      return {
-        success: false,
-        message: `Invalid value: ${valueStr}. Must be a number.`,
-      };
+      context.print(`Invalid value: ${valueStr}. Must be a number.`);
+      return Ok.EMPTY;
     }
 
-    const config: AccessConfig = loadConfig(context.configFilepath)!;
+    const config = loadConfig(context.configFilepath)!;
+    let message = "";
 
     switch (option) {
       case "warnInterval":
         config.watchInterval = value;
-        return {
-          success: true,
-          message: `Set warn interval to ${config.watchInterval}`,
-          shouldSaveConfig: true,
-          config,
-        };
-
+        message = `Set warn interval to ${value}`;
+        break;
       case "detectInterval":
         config.detectInterval = value;
-        return {
-          success: true,
-          message: `Set detect interval to ${config.detectInterval}`,
-          shouldSaveConfig: true,
-          config,
-        };
-
+        message = `Set detect interval to ${value}`;
+        break;
       case "detectRange":
         config.detectRange = value;
-        return {
-          success: true,
-          message: `Set detect range to ${config.detectRange}`,
-          shouldSaveConfig: true,
-          config,
-        };
-
+        message = `Set detect range to ${value}`;
+        break;
       default:
-        return {
-          success: false,
-          message: `Unknown option: ${option}. Available options: warnInterval, detectInterval, detectRange`,
-        };
+        context.print(
+          `Unknown option: ${option}. Available: warnInterval, detectInterval, detectRange`,
+        );
+        return Ok.EMPTY;
     }
-  }
-}
 
-// 帮助命令
-class HelpCommand implements CLICommand {
-  name = "help";
-  description = "Show command help";
-  usage = "help";
+    saveConfig(config, context.configFilepath);
+    context.reloadConfig();
+    context.print(message);
+    return Ok.EMPTY;
+  },
+};
 
-  execute(_args: string[], _executor: string, context: CLIContext): CLIResult {
+const editGroupCommand: Command<AppContext> = {
+  name: "group",
+  description: "Edit group properties",
+  args: [
+    {
+      name: "groupName",
+      description: "Name of the group to edit",
+      required: true,
+    },
+    {
+      name: "property",
+      description: "Property to change (isAllowed, isNotice)",
+      required: true,
+    },
+    { name: "value", description: "New value (true/false)", required: true },
+  ],
+  action: ({ args, context }) => {
+    const [groupName, property, valueStr] = [
+      args.groupName as string,
+      args.property as string,
+      args.value as string,
+    ];
     const config = loadConfig(context.configFilepath)!;
-    const groupNames = getGroupNames(config);
-    const helpMessage = `
-Command Usage: @AC /<Command> [args]
-Commands:
-  - add <userGroup> <playerName>
-      add player to group
-      userGroup: ${groupNames.join(", ")}
-  - del <userGroup> <playerName>
-      delete player in the group, except Admin
-      userGroup: ${groupNames.join(", ")}
-  - list
-      list all of the player with its group
-  - set <options> [params]
-      config access control settings
-      options: warnInterval, detectInterval, detectRange
-  - edit <target> [args]
-      edit various configurations
-      targets: group (edit group properties)
-      examples: edit group <groupName> <property> <value> (properties: isAllowed, isNotice)
-  - showconfig [type]
-      show configuration (type: groups/toast/all)
-  - help
-      show this help message
-    `;
-
-    return {
-      success: true,
-      message: helpMessage.trim(),
-    };
-  }
-}
-
-// 统一编辑命令
-class EditCommand implements CLICommand {
-  name = "edit";
-  description = "Edit various configurations (only group now)";
-  usage = "edit <target> [args]";
-
-  execute(args: string[], _executor: string, context: CLIContext): CLIResult {
-    if (args.length < 1) {
-      return {
-        success: false,
-        message: `Usage: ${this.usage}\nTargets: group`,
-      };
-    }
-
-    const [target, ...rest] = args;
-
-    switch (target) {
-      case "group":
-        return this.editGroup(rest, context);
-      default:
-        return {
-          success: false,
-          message: `Unknown target: ${target}. Available: group`,
-        };
-    }
-  }
-
-  private editGroup(args: string[], context: CLIContext): CLIResult {
-    if (args.length !== 3) {
-      return {
-        success: false,
-        message: `Usage: edit group <groupName> <property> <value>\nProperties: isAllowed, isNotice`,
-      };
-    }
-
-    const [groupName, property, valueStr] = args;
-    const config: AccessConfig = loadConfig(context.configFilepath)!;
 
     let groupConfig: UserGroupConfig | undefined;
-
     if (groupName === "admin") {
       groupConfig = config.adminGroupConfig;
     } else {
-      groupConfig = config.usersGroups.find(
-        (group) => group.groupName === groupName,
-      );
+      groupConfig = config.usersGroups.find((g) => g.groupName === groupName);
     }
 
     if (!groupConfig) {
-      return {
-        success: false,
-        message: `Group ${groupName} not found`,
-      };
+      context.print(`Group ${groupName} not found`);
+      return Ok.EMPTY;
     }
 
+    const boolValue = parseBoolean(valueStr);
+    if (boolValue === undefined) {
+      context.print(
+        `Invalid boolean value: ${valueStr}. Use 'true' or 'false'.`,
+      );
+      return Ok.EMPTY;
+    }
+
+    let message = "";
     switch (property) {
-      case "isAllowed": {
-        const val = parseBoolean(valueStr);
-        if (val != undefined) {
-          groupConfig.isAllowed = val;
-          return {
-            success: true,
-            message: `Set ${groupName}.isAllowed to ${groupConfig.isAllowed}`,
-            shouldSaveConfig: true,
-            config,
-          };
-        } else {
-          return {
-            success: false,
-            message: `Set ${groupName}.isAllowed failed`,
-            shouldSaveConfig: false,
-          };
-        }
-      }
-
-      case "isNotice": {
-        const val = parseBoolean(valueStr);
-        if (val != undefined) {
-          groupConfig.isNotice = val;
-          return {
-            success: true,
-            message: `Set ${groupName}.isNotice to ${groupConfig.isNotice}`,
-            shouldSaveConfig: true,
-            config,
-          };
-        } else {
-          return {
-            success: false,
-            message: `Set ${groupName}.isAllowed failed`,
-            shouldSaveConfig: false,
-          };
-        }
-      }
-
+      case "isAllowed":
+        groupConfig.isAllowed = boolValue;
+        message = `Set ${groupName}.isAllowed to ${boolValue}`;
+        break;
+      case "isNotice":
+        groupConfig.isNotice = boolValue;
+        message = `Set ${groupName}.isNotice to ${boolValue}`;
+        break;
       default:
-        return {
-          success: false,
-          message: `Unknown property: ${property}. Available: isAllowed, isNotice`,
-        };
+        context.print(
+          `Unknown property: ${property}. Available: isAllowed, isNotice`,
+        );
+        return Ok.EMPTY;
     }
-  }
-}
 
-// 显示配置命令
-class ShowConfigCommand implements CLICommand {
-  name = "showconfig";
-  description = "Show configuration";
-  usage = "showconfig [type]";
+    saveConfig(config, context.configFilepath);
+    context.reloadConfig();
+    context.print(message);
+    return Ok.EMPTY;
+  },
+};
 
-  execute(args: string[], _executor: string, context: CLIContext): CLIResult {
-    const type = args[0] || "all";
+const editCommand: Command<AppContext> = {
+  name: "edit",
+  description: "Edit various configurations",
+  subcommands: new Map([["group", editGroupCommand]]),
+};
+
+const showConfigCommand: Command<AppContext> = {
+  name: "showconfig",
+  description: "Show configuration",
+  options: new Map([
+    [
+      "type",
+      {
+        name: "type",
+        description: "Type of config to show (groups, toast, all)",
+        required: false,
+        defaultValue: "all",
+      },
+    ],
+  ]),
+  action: ({ args, context }) => {
+    const type = args.type as string;
     const config = loadConfig(context.configFilepath)!;
+    let message = "";
 
     switch (type) {
       case "groups": {
@@ -487,11 +283,8 @@ class ShowConfigCommand implements CLICommand {
           groupsMessage += `  Notice: ${group.isNotice}\n`;
           groupsMessage += "\n";
         }
-
-        return {
-          success: true,
-          message: groupsMessage.trim(),
-        };
+        message = groupsMessage.trim();
+        break;
       }
 
       case "toast": {
@@ -508,11 +301,8 @@ class ShowConfigCommand implements CLICommand {
         toastMessage += `  Prefix: ${config.warnToastConfig.prefix ?? "none"}\n`;
         toastMessage += `  Brackets: ${config.warnToastConfig.brackets ?? "none"}\n`;
         toastMessage += `  Bracket Color: ${config.warnToastConfig.bracketColor ?? "none"}`;
-
-        return {
-          success: true,
-          message: toastMessage,
-        };
+        message = toastMessage;
+        break;
       }
 
       case "all": {
@@ -521,58 +311,40 @@ class ShowConfigCommand implements CLICommand {
         allMessage += `Warn Interval: ${config.watchInterval}\n\n`;
         allMessage +=
           "Use 'showconfig groups' or 'showconfig toast' for detailed view";
-
-        return {
-          success: true,
-          message: allMessage,
-        };
+        message = allMessage;
+        break;
       }
 
       default:
-        return {
-          success: false,
-          message: `Invalid type: ${type}. Available: groups, toast, all`,
-        };
+        message = `Invalid type: ${type}. Available: groups, toast, all`;
+        break;
     }
-  }
-}
+    context.print(message);
+    return Ok.EMPTY;
+  },
+};
 
-// CLI循环处理器
-export class AccessControlCLI {
-  private processor: CLICommandProcessor;
-  private context: CLIContext;
+// Root command
+const rootCommand: Command<AppContext> = {
+  name: "@AC",
+  description: "Access Control command line interface",
+  subcommands: new Map([
+    ["add", addCommand],
+    ["del", delCommand],
+    ["list", listCommand],
+    ["set", setCommand],
+    ["edit", editCommand],
+    ["showconfig", showConfigCommand],
+  ]),
+  action: ({ context }) => {
+    context.print("Welcome to Access Control CLI");
+    return Ok.EMPTY;
+  },
+};
 
-  constructor(context: CLIContext) {
-    this.context = context;
-    this.processor = new CLICommandProcessor(context);
-  }
-
-  public startConfigLoop() {
-    while (true) {
-      const ev = pullEventAs(ChatBoxEvent, "chat");
-
-      if (ev === undefined) continue;
-
-      const config = loadConfig(this.context.configFilepath)!;
-      if (!config.adminGroupConfig.groupUsers.includes(ev.username)) continue;
-      if (!ev.message.startsWith("@AC")) continue;
-
-      this.context.log.info(
-        `Received command "${ev.message}" from admin ${ev.username}`,
-      );
-
-      const result = this.processor.processCommand(ev.message, ev.username);
-      this.processor.sendResponse(result, ev.username);
-      if (!result.success) {
-        this.context.log.warn(`Command failed: ${result.message}`);
-      }
-    }
-  }
-}
-
-// 导出类型和工厂函数
-export { CLIContext, CLIResult, CLICommand };
-
-export function createAccessControlCLI(context: CLIContext): AccessControlCLI {
-  return new AccessControlCLI(context);
+export function createAccessControlCli(context: AppContext) {
+  return createCli(rootCommand, {
+    globalContext: context,
+    writer: (msg) => context.print(msg),
+  });
 }

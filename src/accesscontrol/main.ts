@@ -1,10 +1,12 @@
 import { CCLog, DAY, LogLevel } from "@/lib/ccLog";
 import { ToastConfig, UserGroupConfig, loadConfig } from "./config";
-import { createAccessControlCLI } from "./cli";
+import { createAccessControlCli } from "./cli";
 import { launchAccessControlTUI } from "./tui";
 import * as peripheralManager from "../lib/PeripheralManager";
 import { deepCopy } from "@/lib/common";
 import { ReadWriteLock } from "@/lib/mutex/ReadWriteLock";
+import { ChatManager } from "@/lib/ChatManager";
+import { gTimerManager } from "@/lib/TimerManager";
 
 const args = [...$vararg];
 
@@ -12,7 +14,7 @@ const args = [...$vararg];
 const logger = new CCLog("accesscontrol.log", {
   printTerminal: true,
   logInterval: DAY,
-  outputMinLevel: LogLevel.Info,
+  outputMinLevel: LogLevel.Debug,
 });
 
 // Load Config
@@ -25,6 +27,7 @@ logger.debug(textutils.serialise(config, { allow_repetitions: true }));
 // Peripheral
 const playerDetector = peripheralManager.findByNameRequired("playerDetector");
 const chatBox = peripheralManager.findByNameRequired("chatBox");
+const chatManager: ChatManager = new ChatManager([chatBox]);
 
 // Global
 let inRangePlayers: string[] = [];
@@ -94,22 +97,22 @@ function sendToast(
     releaser = configLock.tryAcquireRead();
   }
 
-  chatBox.sendFormattedToastToPlayer(
-    safeParseTextComponent(
+  chatManager.sendToast({
+    message: safeParseTextComponent(
       toastConfig.msg ?? config.welcomeToastConfig.msg,
       params,
     ),
-    safeParseTextComponent(
+    title: safeParseTextComponent(
       toastConfig.title ?? config.welcomeToastConfig.title,
       params,
     ),
-    targetPlayer,
-    toastConfig.prefix ?? config.welcomeToastConfig.prefix,
-    toastConfig.brackets ?? config.welcomeToastConfig.brackets,
-    toastConfig.bracketColor ?? config.welcomeToastConfig.bracketColor,
-    undefined,
-    true,
-  );
+    prefix: toastConfig.prefix ?? config.welcomeToastConfig.prefix,
+    brackets: toastConfig.brackets ?? config.welcomeToastConfig.brackets,
+    bracketColor:
+      toastConfig.bracketColor ?? config.welcomeToastConfig.bracketColor,
+    targetPlayer: targetPlayer,
+    utf8Support: true,
+  });
   releaser.release();
 }
 
@@ -150,15 +153,15 @@ function sendWarn(player: string) {
   }
 
   sendToast(config.warnToastConfig, player, { name: player });
-  chatBox.sendFormattedMessageToPlayer(
-    safeParseTextComponent(config.warnToastConfig.msg, { name: player }),
-    player,
-    "AccessControl",
-    "[]",
-    undefined,
-    undefined,
-    true,
-  );
+  chatManager.sendMessage({
+    message: safeParseTextComponent(config.warnToastConfig.msg, {
+      name: player,
+    }),
+    targetPlayer: player,
+    prefix: "AccessControl",
+    brackets: "[]",
+    utf8Support: true,
+  });
   releaser.release();
 }
 
@@ -281,34 +284,74 @@ function keyboardLoop() {
   }
 }
 
+function cliLoop() {
+  let printTargetPlayer: string | undefined;
+  const cli = createAccessControlCli({
+    configFilepath: configFilepath,
+    reloadConfig: () => reloadConfig(),
+    logger: logger,
+    print: (msg) =>
+      chatManager.sendMessage({
+        message: msg,
+        targetPlayer: printTargetPlayer,
+        prefix: "Access Control System",
+        brackets: "[]",
+        utf8Support: true,
+      }),
+  });
+
+  while (true) {
+    const result = chatManager.getReceivedMessage();
+    if (result.isErr()) {
+      sleep(0.5);
+      continue;
+    }
+    logger.debug(`Received message: ${result.value.message}`);
+
+    const ev = result.value;
+
+    let releaser = configLock.tryAcquireRead();
+    while (releaser === undefined) {
+      sleep(0.1);
+      releaser = configLock.tryAcquireRead();
+    }
+
+    const isAdmin = config.adminGroupConfig.groupUsers.includes(ev.username);
+
+    releaser.release();
+    if (!isAdmin) continue;
+    if (!ev.message.startsWith("@AC")) continue;
+
+    printTargetPlayer = ev.username;
+    logger.info(
+      `Received command "${ev.message}" from admin ${printTargetPlayer}`,
+    );
+
+    const commandArgs = ev.message
+      .substring(3)
+      .split(" ")
+      .filter((s) => s.length > 0);
+    logger.debug(`Command arguments: ${commandArgs.join(", ")}`);
+
+    cli(commandArgs);
+    printTargetPlayer = undefined;
+  }
+}
+
 function main(args: string[]) {
   logger.info("Starting access control system, get args: " + args.join(", "));
   if (args.length == 1) {
     if (args[0] == "start") {
-      // 创建CLI处理器
-      const cli = createAccessControlCLI({
-        configFilepath: configFilepath,
-        reloadConfig: () => reloadConfig(),
-        log: logger,
-        chatBox: chatBox,
-      });
-
       print(
         "Access Control System started. Press 'c' to open configuration TUI.",
       );
       parallel.waitForAll(
-        () => {
-          mainLoop();
-        },
-        () => {
-          cli.startConfigLoop();
-        },
-        () => {
-          watchLoop();
-        },
-        () => {
-          keyboardLoop();
-        },
+        () => mainLoop(),
+        () => gTimerManager.run(),
+        () => cliLoop(),
+        () => watchLoop(),
+        () => keyboardLoop(),
+        () => chatManager.run(),
       );
 
       return;

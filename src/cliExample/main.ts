@@ -245,7 +245,7 @@ const chatToastCommand: Command<AppContext> = {
     }
 
     const toast: ChatToast = {
-      username: args.player as string,
+      targetPlayer: args.player as string,
       title: args.title as string,
       message: args.message as string,
       prefix: options.prefix as string,
