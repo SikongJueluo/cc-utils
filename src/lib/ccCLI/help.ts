@@ -103,5 +103,5 @@ export function generateCommandList<TContext extends object>(
  * @returns `true` if a help flag is found, otherwise `false`.
  */
 export function shouldShowHelp(argv: string[]): boolean {
-  return argv.includes("--help") || argv.includes("-h");
+  return argv.includes("help") || argv.includes("h");
 }

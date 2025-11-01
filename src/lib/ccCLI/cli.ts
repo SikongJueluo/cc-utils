@@ -94,30 +94,36 @@ function processAndExecute<TContext extends object>(
 ): Result<void, CliError> {
   const { command, commandPath, options, remaining } = parseResult;
 
-  // Handle requests for help on a specific command.
-  if (shouldShowHelp([...remaining, ...Object.keys(options)])) {
-    writer(generateHelp(command, commandPath));
-    return Ok.EMPTY;
-  }
-
-  // If a command has subcommands but no action, show its help page.
-  if (
-    command.subcommands &&
+  // Unified Help Check:
+  // A command should show its help page if:
+  // 1. A help flag is explicitly passed (`--help` or `-h`). This has the highest priority.
+  // 2. It's a command group that was called without a subcommand (i.e., it has no action).
+  const isHelpFlagPassed = shouldShowHelp([
+    ...remaining,
+    ...Object.keys(options),
+  ]);
+  const isCommandGroupWithoutAction =
+    command.subcommands !== undefined &&
     command.subcommands.size > 0 &&
-    command.action === undefined
-  ) {
+    command.action === undefined;
+
+  if (isHelpFlagPassed || isCommandGroupWithoutAction) {
     writer(generateHelp(command, commandPath));
     return Ok.EMPTY;
   }
 
-  // A command that is meant to be executed must have an action.
+  // If we are here, it's a runnable command. It must have an action.
   if (command.action === undefined) {
+    // This case should ideally not be reached if the parser and the logic above are correct.
+    // It would mean a command has no action and no subcommands, which is a configuration error.
     return new Err({
       kind: "NoAction",
       commandPath: [...commandPath, command.name],
     });
   }
 
+  // Now we know it's a runnable command, and no help flag was passed.
+  // We can now safely process the remaining items as arguments.
   return processArguments(command.args ?? [], remaining)
     .andThen((args) => {
       return processOptions(

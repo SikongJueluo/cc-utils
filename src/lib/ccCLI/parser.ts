@@ -87,22 +87,49 @@ export function parseArguments<TContext extends object>(
   };
 
   let currentCommand = rootCommand;
-  let i = 0;
   let inOptions = false;
-
   const optionMapCache = new OptionMapCache();
-  const getCurrentOptionMaps = () =>
-    getOptionMaps(optionMapCache, currentCommand);
 
-  while (i < argv.length) {
+  // Cache option maps for current command - only updated when command changes
+  let currentOptionMaps = getOptionMaps(optionMapCache, currentCommand);
+
+  // Helper function to update command context and refresh option maps
+  const updateCommand = (
+    newCommand: Command<TContext>,
+    commandName: string,
+  ) => {
+    currentCommand = newCommand;
+    result.command = currentCommand;
+    result.commandPath.push(commandName);
+    currentOptionMaps = getOptionMaps(optionMapCache, currentCommand);
+  };
+
+  // Helper function to process option value
+  const processOption = (optionName: string, i: number): number => {
+    const optionDef = currentOptionMaps.optionMap.get(optionName);
+    const nextArg = argv[i + 1];
+    const isKnownBooleanOption =
+      optionDef !== undefined && optionDef.defaultValue === undefined;
+    const nextArgLooksLikeValue =
+      nextArg !== undefined && nextArg !== null && !nextArg.startsWith("-");
+
+    if (nextArgLooksLikeValue && !isKnownBooleanOption) {
+      result.options[optionName] = nextArg;
+      return i + 1; // Skip the value argument
+    } else {
+      result.options[optionName] = true;
+      return i;
+    }
+  };
+
+  // Single pass through argv
+  for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
 
-    if (arg === undefined || arg === null) {
-      i++;
-      continue;
-    }
+    // Skip null/undefined arguments
+    if (!arg) continue;
 
-    // Handle double dash (--) - everything after is treated as a remaining argument
+    // Handle double dash (--) - everything after is treated as remaining
     if (arg === "--") {
       result.remaining.push(...argv.slice(i + 1));
       break;
@@ -121,70 +148,33 @@ export function parseArguments<TContext extends object>(
       } else {
         // --option [value] format
         const optionName = arg.slice(2);
-        const optionDef = getCurrentOptionMaps().optionMap.get(optionName);
-
-        // Check if this is a known boolean option or if next arg looks like a value
-        const nextArg = argv[i + 1];
-        const isKnownBooleanOption =
-          optionDef !== undefined && optionDef.defaultValue === undefined;
-        const nextArgLooksLikeValue =
-          nextArg !== undefined && nextArg !== null && !nextArg.startsWith("-");
-
-        if (nextArgLooksLikeValue && !isKnownBooleanOption) {
-          result.options[optionName] = nextArg;
-          i++; // Skip the value argument
-        } else {
-          // Boolean flag or no value available
-          result.options[optionName] = true;
-        }
+        i = processOption(optionName, i);
       }
     }
     // Handle short options (-o or -o value)
     else if (arg.startsWith("-") && arg.length > 1) {
       inOptions = true;
       const shortName = arg.slice(1);
-
-      // Get option maps for the new command (lazy loaded and cached)
-      const maps = getCurrentOptionMaps();
-      const optionName = maps.shortNameMap.get(shortName) ?? shortName;
-      const optionDef = maps.optionMap.get(optionName);
-
-      // Check if this is a known boolean option or if next arg looks like a value
-      const nextArg = argv[i + 1];
-      const isKnownBooleanOption =
-        optionDef !== undefined && optionDef.defaultValue === undefined;
-      const nextArgLooksLikeValue =
-        nextArg !== undefined && nextArg !== null && !nextArg.startsWith("-");
-
-      if (nextArgLooksLikeValue && !isKnownBooleanOption) {
-        result.options[optionName] = nextArg;
-        i++; // Skip the value argument
-      } else {
-        // Boolean flag or no value available
-        result.options[optionName] = true;
-      }
+      const optionName =
+        currentOptionMaps.shortNameMap.get(shortName) ?? shortName;
+      i = processOption(optionName, i);
     }
     // Handle positional arguments and command resolution
     else {
       if (!inOptions) {
         // Try to find this as a subcommand of the current command
         const subcommand = currentCommand.subcommands?.get(arg);
-        if (subcommand !== undefined) {
-          // Found a subcommand, move deeper
-          currentCommand = subcommand;
-          result.command = currentCommand;
-          result.commandPath.push(arg);
+        if (subcommand) {
+          updateCommand(subcommand, arg);
         } else {
           // Not a subcommand, treat as remaining argument
           result.remaining.push(arg);
         }
       } else {
-        // After options have started, treat as a remaining argument
+        // After options have started, treat as remaining argument
         result.remaining.push(arg);
       }
     }
-
-    i++;
   }
 
   return new Ok(result);
