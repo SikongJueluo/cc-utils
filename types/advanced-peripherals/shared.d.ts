@@ -30,7 +30,7 @@ declare type MinecraftColor =
   | "light_purple"
   | "yellow"
   | "white"
-  | "reset"; // RGB color in #RRGGBB format
+  | `#${string}`;
 
 declare type MinecraftFont =
   | "minecraft:default"

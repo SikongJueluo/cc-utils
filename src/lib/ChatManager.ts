@@ -53,7 +53,7 @@ export interface ChatToast extends ChatBasicMessage {
   /** Target player username to send the toast to */
   targetPlayer: string;
   /** Title of the toast notification */
-  title: string;
+  title: string | MinecraftTextComponent | MinecraftTextComponent[];
 }
 
 /**
@@ -224,9 +224,13 @@ export class ChatManager {
         // Send private message to specific player
         if (typeof message.message === "string") {
           [success, errorMsg] = chatbox.sendMessageToPlayer(
-            message.message,
+            textutils.serialiseJSON(message.message, {
+              unicode_strings: message.utf8Support,
+            }),
             message.targetPlayer,
-            message.prefix,
+            textutils.serialiseJSON(message.prefix ?? "AP", {
+              unicode_strings: message.utf8Support,
+            }),
             message.brackets,
             message.bracketColor,
             message.range,
@@ -236,11 +240,13 @@ export class ChatManager {
           // Handle MinecraftTextComponent for private message
           [success, errorMsg] = chatbox.sendFormattedMessageToPlayer(
             textutils.serialiseJSON(message.message, {
-              unicode_strings: true,
+              unicode_strings: message.utf8Support,
               allow_repetitions: true,
             }),
             message.targetPlayer,
-            message.prefix,
+            textutils.serialiseJSON(message.prefix ?? "AP", {
+              unicode_strings: message.utf8Support,
+            }),
             message.brackets,
             message.bracketColor,
             message.range,
@@ -251,8 +257,12 @@ export class ChatManager {
         // Send global message
         if (typeof message.message === "string") {
           [success, errorMsg] = chatbox.sendMessage(
-            message.message,
-            message.prefix,
+            textutils.serialiseJSON(message.message, {
+              unicode_strings: message.utf8Support,
+            }),
+            textutils.serialiseJSON(message.prefix ?? "AP", {
+              unicode_strings: message.utf8Support,
+            }),
             message.brackets,
             message.bracketColor,
             message.range,
@@ -262,10 +272,12 @@ export class ChatManager {
           // Handle MinecraftTextComponent for global message
           [success, errorMsg] = chatbox.sendFormattedMessage(
             textutils.serialiseJSON(message.message, {
-              unicode_strings: true,
+              unicode_strings: message.utf8Support,
               allow_repetitions: true,
             }),
-            message.prefix,
+            textutils.serialiseJSON(message.prefix ?? "AP", {
+              unicode_strings: message.utf8Support,
+            }),
             message.brackets,
             message.bracketColor,
             message.range,
@@ -321,10 +333,16 @@ export class ChatManager {
         typeof toast.title === "string"
       ) {
         [success, errorMsg] = chatbox.sendToastToPlayer(
-          toast.message,
-          toast.title,
+          textutils.serialiseJSON(toast.message, {
+            unicode_strings: toast.utf8Support,
+          }),
+          textutils.serialiseJSON(toast.title, {
+            unicode_strings: toast.utf8Support,
+          }),
           toast.targetPlayer,
-          toast.prefix,
+          textutils.serialiseJSON(toast.prefix ?? "AP", {
+            unicode_strings: toast.utf8Support,
+          }),
           toast.brackets,
           toast.bracketColor,
           toast.range,
@@ -337,21 +355,23 @@ export class ChatManager {
             ? toast.message
             : textutils.serialiseJSON(toast.message, {
                 unicode_strings: true,
-                allow_repetitions: true,
+                allow_repetitions: toast.utf8Support,
               });
         const titleJson =
           typeof toast.title === "string"
             ? toast.title
             : textutils.serialiseJSON(toast.title, {
                 unicode_strings: true,
-                allow_repetitions: true,
+                allow_repetitions: toast.utf8Support,
               });
 
         [success, errorMsg] = chatbox.sendFormattedToastToPlayer(
           messageJson,
           titleJson,
           toast.targetPlayer,
-          toast.prefix,
+          textutils.serialiseJSON(toast.prefix ?? "AP", {
+            unicode_strings: toast.utf8Support,
+          }),
           toast.brackets,
           toast.bracketColor,
           toast.range,

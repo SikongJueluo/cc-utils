@@ -357,6 +357,34 @@ const AccessControlTUI = () => {
 
         div(
           { class: "flex flex-row" },
+          label({}, "Is Welcome:"),
+          input({
+            type: "checkbox",
+            checked: () => getSelectedGroup().isWelcome,
+            onChange: (checked) => {
+              const groupIndex = selectedGroupIndex();
+              if (groupIndex === 0) {
+                const currentAdmin = config().adminGroupConfig;
+                setConfig("adminGroupConfig", {
+                  ...currentAdmin,
+                  isWelcome: checked,
+                });
+              } else {
+                const actualIndex = groupIndex - 1;
+                const currentGroups = config().usersGroups;
+                const currentGroup = currentGroups[actualIndex];
+                const newGroups = [...currentGroups];
+                newGroups[actualIndex] = {
+                  ...currentGroup,
+                  isWelcome: checked,
+                };
+                setConfig("usersGroups", newGroups);
+              }
+            },
+          }),
+        ),
+        div(
+          { class: "flex flex-row" },
           label({}, "Is Allowed:"),
           input({
             type: "checkbox",
@@ -541,7 +569,12 @@ const AccessControlTUI = () => {
           label({}, "Prefix:"),
           input({
             type: "text",
-            value: () => getTempToastConfig().prefix,
+            value: () => {
+              const str = textutils.serialiseJSON(getTempToastConfig().prefix, {
+                unicode_strings: true,
+              });
+              return str.substring(1, str.length - 1);
+            },
             onInput: (value) =>
               setTempToastConfig({ ...getTempToastConfig(), prefix: value }),
             onFocusChanged: () => {

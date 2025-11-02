@@ -7,6 +7,7 @@ import { deepCopy } from "@/lib/common";
 import { ReadWriteLock } from "@/lib/mutex/ReadWriteLock";
 import { ChatManager } from "@/lib/ChatManager";
 import { gTimerManager } from "@/lib/TimerManager";
+import { KeyEvent, pullEventAs } from "@/lib/event";
 
 const args = [...$vararg];
 
@@ -25,17 +26,20 @@ logger.info("Load config successfully!");
 logger.debug(textutils.serialise(config, { allow_repetitions: true }));
 
 // Peripheral
-const playerDetector = peripheralManager.findByNameRequired("playerDetector");
-const chatBox = peripheralManager.findByNameRequired("chatBox");
+const playerDetector = peripheral.find(
+  "playerDetector",
+)[0] as PlayerDetectorPeripheral;
+const chatBox = peripheral.find("chatBox")[0] as ChatBoxPeripheral;
 const chatManager: ChatManager = new ChatManager([chatBox]);
 
 // Global
-let inRangePlayers: string[] = [];
-let watchPlayersInfo: { name: string; hasNoticeTimes: number }[] = [];
+let gInRangePlayers: string[] = [];
+let gWatchPlayersInfo: { name: string; hasNoticeTimes: number }[] = [];
+let gIsRunning = true;
 
 interface ParseParams {
-  name?: string;
-  group?: string;
+  playerName?: string;
+  groupName?: string;
   info?: PlayerInfo;
 }
 
@@ -47,8 +51,8 @@ function reloadConfig() {
   }
 
   config = loadConfig(configFilepath)!;
-  inRangePlayers = [];
-  watchPlayersInfo = [];
+  gInRangePlayers = [];
+  gWatchPlayersInfo = [];
   releaser.release();
   logger.info("Reload config successfully!");
 }
@@ -56,7 +60,7 @@ function reloadConfig() {
 function safeParseTextComponent(
   component: MinecraftTextComponent,
   params?: ParseParams,
-): string {
+): MinecraftTextComponent {
   const newComponent = deepCopy(component);
 
   if (newComponent.text == undefined) {
@@ -64,11 +68,11 @@ function safeParseTextComponent(
   } else if (newComponent.text.includes("%")) {
     newComponent.text = newComponent.text.replace(
       "%playerName%",
-      params?.name ?? "UnknowPlayer",
+      params?.playerName ?? "UnknowPlayer",
     );
     newComponent.text = newComponent.text.replace(
       "%groupName%",
-      params?.group ?? "UnknowGroup",
+      params?.groupName ?? "UnknowGroup",
     );
     newComponent.text = newComponent.text.replace(
       "%playerPosX%",
@@ -83,7 +87,34 @@ function safeParseTextComponent(
       params?.info?.z.toString() ?? "UnknowPosZ",
     );
   }
-  return textutils.serialiseJSON(newComponent);
+  return newComponent;
+}
+
+function sendMessage(
+  toastConfig: ToastConfig,
+  targetPlayer: string,
+  params: ParseParams,
+) {
+  let releaser = configLock.tryAcquireRead();
+  while (releaser === undefined) {
+    sleep(0.1);
+    releaser = configLock.tryAcquireRead();
+  }
+
+  chatManager.sendMessage({
+    message: safeParseTextComponent(
+      toastConfig.msg ?? config.welcomeToastConfig.msg,
+      params,
+    ),
+    prefix: toastConfig.prefix ?? config.welcomeToastConfig.prefix,
+    brackets: toastConfig.brackets ?? config.welcomeToastConfig.brackets,
+    bracketColor:
+      toastConfig.bracketColor ?? config.welcomeToastConfig.bracketColor,
+    targetPlayer: targetPlayer,
+    utf8Support: true,
+  });
+
+  releaser.release();
 }
 
 function sendToast(
@@ -134,7 +165,7 @@ function sendNotice(player: string, playerInfo?: PlayerInfo) {
   for (const targetPlayer of noticeTargetPlayers) {
     if (!onlinePlayers.includes(targetPlayer)) continue;
     sendToast(config.noticeToastConfig, targetPlayer, {
-      name: player,
+      playerName: player,
       info: playerInfo,
     });
     sleep(1);
@@ -152,10 +183,10 @@ function sendWarn(player: string) {
     releaser = configLock.tryAcquireRead();
   }
 
-  sendToast(config.warnToastConfig, player, { name: player });
+  sendToast(config.warnToastConfig, player, { playerName: player });
   chatManager.sendMessage({
     message: safeParseTextComponent(config.warnToastConfig.msg, {
-      name: player,
+      playerName: player,
     }),
     targetPlayer: player,
     prefix: "AccessControl",
@@ -166,18 +197,18 @@ function sendWarn(player: string) {
 }
 
 function watchLoop() {
-  while (true) {
+  while (gIsRunning) {
     const releaser = configLock.tryAcquireRead();
     if (releaser === undefined) {
       os.sleep(1);
       continue;
     }
 
-    const watchPlayerNames = watchPlayersInfo.flatMap((value) => value.name);
+    const watchPlayerNames = gWatchPlayersInfo.flatMap((value) => value.name);
     logger.debug(`Watch Players [ ${watchPlayerNames.join(", ")} ]`);
-    for (const player of watchPlayersInfo) {
+    for (const player of gWatchPlayersInfo) {
       const playerInfo = playerDetector.getPlayerPos(player.name);
-      if (inRangePlayers.includes(player.name)) {
+      if (gInRangePlayers.includes(player.name)) {
         // Notice
         if (player.hasNoticeTimes < config.noticeTimes) {
           sendNotice(player.name, playerInfo);
@@ -193,7 +224,7 @@ function watchLoop() {
         );
       } else {
         // Get rid of player from list
-        watchPlayersInfo = watchPlayersInfo.filter(
+        gWatchPlayersInfo = gWatchPlayersInfo.filter(
           (value) => value.name != player.name,
         );
         logger.info(
@@ -209,7 +240,7 @@ function watchLoop() {
 }
 
 function mainLoop() {
-  while (true) {
+  while (gIsRunning) {
     const releaser = configLock.tryAcquireRead();
     if (releaser === undefined) {
       os.sleep(0.1);
@@ -221,20 +252,31 @@ function mainLoop() {
     logger.debug(`Detected ${players.length} players: ${playersList}`);
 
     for (const player of players) {
-      if (inRangePlayers.includes(player)) continue;
+      if (gInRangePlayers.includes(player)) continue;
+
+      // Get player Info
+      const playerInfo = playerDetector.getPlayerPos(player);
 
       if (config.adminGroupConfig.groupUsers.includes(player)) {
-        logger.info(`Admin ${player} appear`);
+        logger.info(
+          `Admin ${player} appear at ${playerInfo?.x}, ${playerInfo?.y}, ${playerInfo?.z}`,
+        );
+        if (config.adminGroupConfig.isWelcome)
+          sendMessage(config.welcomeToastConfig, player, {
+            playerName: player,
+            groupName: "Admin",
+            info: playerInfo,
+          });
         continue;
       }
 
       // New player appear
-      const playerInfo = playerDetector.getPlayerPos(player);
       let groupConfig: UserGroupConfig = {
         groupName: "Unfamiliar",
         groupUsers: [],
         isAllowed: false,
         isNotice: false,
+        isWelcome: false,
       };
       for (const userGroupConfig of config.usersGroups) {
         if (userGroupConfig.groupUsers == undefined) continue;
@@ -247,28 +289,37 @@ function mainLoop() {
 
         break;
       }
+
+      if (config.adminGroupConfig.isWelcome)
+        sendMessage(config.welcomeToastConfig, player, {
+          playerName: player,
+          groupName: groupConfig.groupName,
+          info: playerInfo,
+        });
       if (groupConfig.isAllowed) continue;
 
       logger.warn(
         `${groupConfig.groupName} ${player} appear at ${playerInfo?.x}, ${playerInfo?.y}, ${playerInfo?.z}`,
       );
       if (config.isWarn) sendWarn(player);
-      watchPlayersInfo = [
-        ...watchPlayersInfo,
+      gWatchPlayersInfo = [
+        ...gWatchPlayersInfo,
         { name: player, hasNoticeTimes: 0 },
       ];
     }
 
-    inRangePlayers = players;
+    gInRangePlayers = players;
     releaser.release();
     os.sleep(config.detectInterval);
   }
 }
 
 function keyboardLoop() {
-  while (true) {
-    const [eventType, key] = os.pullEvent("key");
-    if (eventType === "key" && key === keys.c) {
+  while (gIsRunning) {
+    const event = pullEventAs(KeyEvent, "key");
+    if (event === undefined) continue;
+
+    if (event.key === keys.c) {
       logger.info("Launching Access Control TUI...");
       try {
         logger.setInTerminal(false);
@@ -280,7 +331,12 @@ function keyboardLoop() {
         logger.setInTerminal(true);
         reloadConfig();
       }
+    } else if (event.key === keys.r) {
+      reloadConfig();
     }
+    // else if (event.key === keys.q) {
+    //   gIsRunning = false;
+    // }
   }
 }
 
@@ -300,7 +356,7 @@ function cliLoop() {
       }),
   });
 
-  while (true) {
+  while (gIsRunning) {
     const result = chatManager.getReceivedMessage();
     if (result.isErr()) {
       sleep(0.5);
@@ -342,9 +398,11 @@ function main(args: string[]) {
   logger.info("Starting access control system, get args: " + args.join(", "));
   if (args.length == 1) {
     if (args[0] == "start") {
-      print(
-        "Access Control System started. Press 'c' to open configuration TUI.",
-      );
+      const tutorial: string[] = [];
+      tutorial.push("Access Control System started.");
+      tutorial.push("\tPress 'c' to open configuration TUI.");
+      tutorial.push("\tPress 'r' to reload configuration.");
+      print(tutorial.join("\n"));
       parallel.waitForAll(
         () => mainLoop(),
         () => gTimerManager.run(),

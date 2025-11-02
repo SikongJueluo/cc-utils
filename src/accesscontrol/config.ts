@@ -12,6 +12,7 @@ interface UserGroupConfig {
   groupName: string;
   isAllowed: boolean;
   isNotice: boolean;
+  isWelcome: boolean;
   groupUsers: string[];
 }
 
@@ -39,6 +40,7 @@ const defaultConfig: AccessConfig = {
     groupUsers: ["Selcon"],
     isAllowed: true,
     isNotice: true,
+    isWelcome: true,
   },
   usersGroups: [
     {
@@ -46,57 +48,60 @@ const defaultConfig: AccessConfig = {
       groupUsers: [],
       isAllowed: true,
       isNotice: true,
+      isWelcome: false,
     },
     {
       groupName: "VIP",
       groupUsers: [],
       isAllowed: true,
       isNotice: false,
+      isWelcome: true,
     },
     {
       groupName: "enemies",
       groupUsers: [],
       isAllowed: false,
       isNotice: false,
+      isWelcome: false,
     },
   ],
   welcomeToastConfig: {
     title: {
-      text: "Welcome",
+      text: "欢迎",
       color: "green",
     },
     msg: {
-      text: "Hello User %playerName%",
-      color: "green",
+      text: "欢迎 %playerName% 参观桃源星喵~",
+      color: "#EDC8DA",
     },
-    prefix: "Taohuayuan",
-    brackets: "[]",
+    prefix: "桃源星",
+    brackets: "<>",
     bracketColor: "",
   },
   noticeToastConfig: {
     title: {
-      text: "Notice",
+      text: "警告",
       color: "red",
     },
     msg: {
-      text: "Unfamiliar player %playerName% appeared at Position %playerPosX%, %playerPosY%, %playerPosZ%",
+      text: "陌生玩家 %playerName% 出现在 %playerPosX%, %playerPosY%, %playerPosZ%",
       color: "red",
     },
-    prefix: "Taohuayuan",
-    brackets: "[]",
+    prefix: "桃源星",
+    brackets: "<>",
     bracketColor: "",
   },
   warnToastConfig: {
     title: {
-      text: "Attention!!!",
+      text: "注意",
       color: "red",
     },
     msg: {
-      text: "%playerName% you are not allowed to be here",
+      text: "%playerName% 你已经进入桃源星领地",
       color: "red",
     },
-    prefix: "Taohuayuan",
-    brackets: "[]",
+    prefix: "桃源星",
+    brackets: "<>",
     bracketColor: "",
   },
 };

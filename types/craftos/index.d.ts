@@ -925,10 +925,22 @@ declare namespace textutils {
   function pagedTabulate(...args: (LuaTable | Object | Color)[]): void;
   function serialize(tab: object, options?: SerializeOptions): string;
   function serialise(tab: object, options?: SerializeOptions): string;
-  function serializeJSON(tab: object, nbtStyle?: boolean): string;
-  function serializeJSON(tab: object, options: SerializeJSONOptions): string;
-  function serialiseJSON(tab: object, nbtStyle?: boolean): string;
-  function serialiseJSON(tab: object, options: SerializeJSONOptions): string;
+  function serializeJSON(
+    tab: object | string | number | boolean,
+    nbtStyle?: boolean,
+  ): string;
+  function serializeJSON(
+    tab: object | string | number | boolean,
+    options: SerializeJSONOptions,
+  ): string;
+  function serialiseJSON(
+    tab: object | string | number | boolean,
+    nbtStyle?: boolean,
+  ): string;
+  function serialiseJSON(
+    tab: object | string | number | boolean,
+    options: SerializeJSONOptions,
+  ): string;
   function unserialize(str: string): unknown;
   function unserialise(str: string): unknown;
   function unserializeJSON(
