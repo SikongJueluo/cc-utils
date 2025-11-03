@@ -30,7 +30,17 @@ A declarative, reactive TUI (Terminal User Interface) framework inspired by [Sol
 - **Control Flow:** Includes `<For>` and `<Show>` components for conditional and list-based rendering.
 - **Component-Based:** Structure your UI into reusable components. See `src/tuiExample/main.ts` for a demo.
 
-### 4. Core Libraries
+### 4. ccCLI Framework
+A lightweight, functional-style framework for building command-line interfaces (CLIs) within CC:Tweaked. It supports nested commands, arguments, options, and automatic help generation. See the [ccCLI Documentation](docs/ccCLI.md) for more details.
+
+- **Declarative API:** Define commands, arguments, and options using a simple, object-based structure.
+- **Nested Commands:** Organize complex applications with subcommands (e.g., `mycli command subcommand`).
+- **Automatic Help:** Generates detailed help messages for commands and subcommands.
+- **Global Context:** Inject shared state or services into command actions.
+- **Type-Safe:** Built with TypeScript for robust development.
+
+### 5. Core Libraries
+- **`ChatManager`:** A powerful manager for `chatBox` peripherals that handles message queuing, cooldowns, and asynchronous sending/receiving. See the [ChatManager Documentation](docs/ChatManager.md) for more details.
 - **`ccLog`:** A robust logging library with automatic, time-based log file rotation.
 - **`PeripheralManager`:** A utility for easily finding and requiring peripherals by name or type.
 - **`CraftManager`:** A library for parsing and executing crafting recipes from Create mod packages.
