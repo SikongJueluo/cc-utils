@@ -323,6 +323,15 @@ const AccessControlTUI = () => {
           onChange: (checked) => setConfig("isWarn", checked),
         }),
       ),
+      div(
+        { class: "flex flex-row" },
+        label({}, "Is Welcome:"),
+        input({
+          type: "checkbox",
+          checked: () => config().isWelcome ?? false,
+          onChange: (checked) => setConfig("isWelcome", checked),
+        }),
+      ),
     );
   };
 

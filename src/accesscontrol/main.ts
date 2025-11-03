@@ -2,7 +2,6 @@ import { CCLog, DAY, LogLevel } from "@/lib/ccLog";
 import { ToastConfig, UserGroupConfig, loadConfig } from "./config";
 import { createAccessControlCli } from "./cli";
 import { launchAccessControlTUI } from "./tui";
-import * as peripheralManager from "../lib/PeripheralManager";
 import { deepCopy } from "@/lib/common";
 import { ReadWriteLock } from "@/lib/mutex/ReadWriteLock";
 import { ChatManager } from "@/lib/ChatManager";
@@ -15,7 +14,7 @@ const args = [...$vararg];
 const logger = new CCLog("accesscontrol.log", {
   printTerminal: true,
   logInterval: DAY,
-  outputMinLevel: LogLevel.Debug,
+  outputMinLevel: LogLevel.Info,
 });
 
 // Load Config
@@ -278,6 +277,8 @@ function mainLoop() {
         isNotice: false,
         isWelcome: false,
       };
+
+      // Get user group config
       for (const userGroupConfig of config.usersGroups) {
         if (userGroupConfig.groupUsers == undefined) continue;
         if (!userGroupConfig.groupUsers.includes(player)) continue;
@@ -286,21 +287,27 @@ function mainLoop() {
         logger.info(
           `${groupConfig.groupName} ${player} appear at ${playerInfo?.x}, ${playerInfo?.y}, ${playerInfo?.z}`,
         );
+        if (userGroupConfig.isWelcome)
+          sendMessage(config.welcomeToastConfig, player, {
+            playerName: player,
+            groupName: groupConfig.groupName,
+            info: playerInfo,
+          });
 
         break;
       }
 
-      if (config.adminGroupConfig.isWelcome)
-        sendMessage(config.welcomeToastConfig, player, {
-          playerName: player,
-          groupName: groupConfig.groupName,
-          info: playerInfo,
-        });
       if (groupConfig.isAllowed) continue;
 
       logger.warn(
         `${groupConfig.groupName} ${player} appear at ${playerInfo?.x}, ${playerInfo?.y}, ${playerInfo?.z}`,
       );
+      if (config.isWelcome)
+        sendMessage(config.welcomeToastConfig, player, {
+          playerName: player,
+          groupName: groupConfig.groupName,
+          info: playerInfo,
+        });
       if (config.isWarn) sendWarn(player);
       gWatchPlayersInfo = [
         ...gWatchPlayersInfo,

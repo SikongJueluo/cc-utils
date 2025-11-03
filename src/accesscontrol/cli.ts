@@ -117,8 +117,8 @@ const delCommand: Command<AppContext> = {
   },
 };
 
-const listCommand: Command<AppContext> = {
-  name: "list",
+const listUserCommand: Command<AppContext> = {
+  name: "user",
   description: "列出所有玩家及其所在的用户组",
   action: ({ context }) => {
     const config = loadConfig(context.configFilepath)!;
@@ -134,213 +134,227 @@ const listCommand: Command<AppContext> = {
   },
 };
 
-const setCommand: Command<AppContext> = {
-  name: "set",
+const listGroupCommand: Command<AppContext> = {
+  name: "group",
+  description: "显示详细的用户组配置信息",
+  action: ({ context }) => {
+    const config = loadConfig(context.configFilepath)!;
+    let groupsMessage = `管理员组: ${config.adminGroupConfig.groupName}\n`;
+    groupsMessage += `  用户: [${config.adminGroupConfig.groupUsers.join(
+      ", ",
+    )}]\n`;
+    groupsMessage += `  允许: ${config.adminGroupConfig.isAllowed}\n`;
+    groupsMessage += `  通知: ${config.adminGroupConfig.isNotice}\n\n`;
+
+    for (const group of config.usersGroups) {
+      groupsMessage += `用户组: ${group.groupName}\n`;
+      groupsMessage += `  用户: [${(group.groupUsers ?? []).join(", ")}]\n`;
+      groupsMessage += `  允许: ${group.isAllowed}\n`;
+      groupsMessage += `  通知: ${group.isNotice}\n`;
+      groupsMessage += "\n";
+    }
+    context.print({ text: groupsMessage.trim() });
+    return Ok.EMPTY;
+  },
+};
+
+const listToastCommand: Command<AppContext> = {
+  name: "toast",
+  description: "显示 Toast 配置信息",
+  action: ({ context }) => {
+    const config = loadConfig(context.configFilepath)!;
+    let toastMessage = "默认 Toast 配置:\n";
+    toastMessage += `  标题: ${config.welcomeToastConfig.title.text}\n`;
+    toastMessage += `  消息: ${config.welcomeToastConfig.msg.text}\n`;
+    toastMessage += `  前缀: ${config.welcomeToastConfig.prefix ?? "none"}\n`;
+    toastMessage += `  括号: ${config.welcomeToastConfig.brackets ?? "none"}\n`;
+    toastMessage += `  括号颜色: ${
+      config.welcomeToastConfig.bracketColor ?? "none"
+    }\n\n`;
+
+    toastMessage += "警告 Toast 配置:\n";
+    toastMessage += `  标题: ${config.warnToastConfig.title.text}\n`;
+    toastMessage += `  消息: ${config.warnToastConfig.msg.text}\n`;
+    toastMessage += `  前缀: ${config.warnToastConfig.prefix ?? "none"}\n`;
+    toastMessage += `  括号: ${config.warnToastConfig.brackets ?? "none"}\n`;
+    toastMessage += `  括号颜色: ${
+      config.warnToastConfig.bracketColor ?? "none"
+    }`;
+    context.print({ text: toastMessage });
+    return Ok.EMPTY;
+  },
+};
+
+const listAllCommand: Command<AppContext> = {
+  name: "all",
+  description: "显示基本配置信息概览",
+  action: ({ context }) => {
+    const config = loadConfig(context.configFilepath)!;
+    let allMessage = `检测范围: ${config.detectRange}\n`;
+    allMessage += `检测间隔: ${config.detectInterval}\n`;
+    allMessage += `警告间隔: ${config.watchInterval}\n`;
+    allMessage += `通知次数: ${config.noticeTimes}\n`;
+    allMessage += `全局欢迎功能: ${config.isWelcome}\n`;
+    allMessage += `全局警告功能: ${config.isWarn}\n\n`;
+    allMessage += "使用 'list group' 或 'list toast' 查看详细信息";
+    context.print({ text: allMessage });
+    return Ok.EMPTY;
+  },
+};
+
+const listCommand: Command<AppContext> = {
+  name: "list",
+  description: "列出玩家、组信息或配置",
+  subcommands: new Map([
+    ["user", listUserCommand],
+    ["group", listGroupCommand],
+    ["toast", listToastCommand],
+    ["all", listAllCommand],
+  ]),
+  action: ({ context }) => {
+    const config = loadConfig(context.configFilepath)!;
+    let allMessage = `检测范围: ${config.detectRange}\n`;
+    allMessage += `检测间隔: ${config.detectInterval}\n`;
+    allMessage += `警告间隔: ${config.watchInterval}\n`;
+    allMessage += `通知次数: ${config.noticeTimes}\n`;
+    allMessage += `全局欢迎功能: ${config.isWelcome}\n`;
+    allMessage += `全局警告功能: ${config.isWarn}\n\n`;
+    allMessage += "使用 'list group' 或 'list toast' 查看详细信息";
+    context.print({ text: allMessage });
+    return Ok.EMPTY;
+  },
+};
+
+const configCommand: Command<AppContext> = {
+  name: "config",
   description: "配置访问控制设置",
   args: [
     {
       name: "option",
-      description: "要设置的选项 (warnInterval, detectInterval, detectRange)",
+      description:
+        "要设置的选项 (warnInterval, detectInterval, detectRange, noticeTimes, isWelcome, isWarn) 或用户组属性 (<groupName>.isAllowed, <groupName>.isNotice, <groupName>.isWelcome)",
       required: true,
     },
     { name: "value", description: "要设置的值", required: true },
   ],
   action: ({ args, context }) => {
     const [option, valueStr] = [args.option as string, args.value as string];
-    const value = parseInt(valueStr);
-
-    if (isNaN(value)) {
-      context.print({ text: `无效的值: ${valueStr}. 必须是一个数字。` });
-      return Ok.EMPTY;
-    }
-
     const config = loadConfig(context.configFilepath)!;
-    let message = "";
 
-    switch (option) {
-      case "warnInterval":
-        config.watchInterval = value;
-        message = `已设置警告间隔为 ${value}`;
-        break;
-      case "detectInterval":
-        config.detectInterval = value;
-        message = `已设置检测间隔为 ${value}`;
-        break;
-      case "detectRange":
-        config.detectRange = value;
-        message = `已设置检测范围为 ${value}`;
-        break;
-      default:
+    // Check if it's a group property (contains a dot)
+    if (option.includes(".")) {
+      const dotIndex = option.indexOf(".");
+      const groupName = option.substring(0, dotIndex);
+      const property = option.substring(dotIndex + 1);
+
+      let groupConfig: UserGroupConfig | undefined;
+      if (groupName === "admin") {
+        groupConfig = config.adminGroupConfig;
+      } else {
+        groupConfig = config.usersGroups.find((g) => g.groupName === groupName);
+      }
+
+      if (!groupConfig) {
+        context.print({ text: `用户组 ${groupName} 未找到` });
+        return Ok.EMPTY;
+      }
+
+      const boolValue = parseBoolean(valueStr);
+      if (boolValue === undefined) {
         context.print({
-          text: `未知选项: ${option}. 可用选项: warnInterval, detectInterval, detectRange`,
+          text: `无效的布尔值: ${valueStr}. 请使用 'true' 或 'false'.`,
         });
         return Ok.EMPTY;
-    }
+      }
 
-    saveConfig(config, context.configFilepath);
-    context.reloadConfig();
-    context.print({ text: message });
-    return Ok.EMPTY;
-  },
-};
+      let message = "";
+      switch (property) {
+        case "isAllowed":
+          groupConfig.isAllowed = boolValue;
+          message = `已设置 ${groupName}.isAllowed 为 ${boolValue}`;
+          break;
+        case "isNotice":
+          groupConfig.isNotice = boolValue;
+          message = `已设置 ${groupName}.isNotice 为 ${boolValue}`;
+          break;
+        case "isWelcome":
+          groupConfig.isWelcome = boolValue;
+          message = `已设置 ${groupName}.isWelcome 为 ${boolValue}`;
+          break;
+        default:
+          context.print({
+            text: `未知属性: ${property}. 可用属性: isAllowed, isNotice, isWelcome`,
+          });
+          return Ok.EMPTY;
+      }
 
-const editGroupCommand: Command<AppContext> = {
-  name: "group",
-  description: "编辑用户组属性",
-  args: [
-    {
-      name: "groupName",
-      description: "要编辑的用户组名称",
-      required: true,
-    },
-    {
-      name: "property",
-      description: "要更改的属性 (isAllowed, isNotice)",
-      required: true,
-    },
-    { name: "value", description: "新值 (true/false)", required: true },
-  ],
-  action: ({ args, context }) => {
-    const [groupName, property, valueStr] = [
-      args.groupName as string,
-      args.property as string,
-      args.value as string,
-    ];
-    const config = loadConfig(context.configFilepath)!;
-
-    let groupConfig: UserGroupConfig | undefined;
-    if (groupName === "admin") {
-      groupConfig = config.adminGroupConfig;
+      saveConfig(config, context.configFilepath);
+      context.reloadConfig();
+      context.print({ text: message });
+      return Ok.EMPTY;
     } else {
-      groupConfig = config.usersGroups.find((g) => g.groupName === groupName);
-    }
+      // Handle basic configuration options
+      let message = "";
 
-    if (!groupConfig) {
-      context.print({ text: `用户组 ${groupName} 未找到` });
-      return Ok.EMPTY;
-    }
-
-    const boolValue = parseBoolean(valueStr);
-    if (boolValue === undefined) {
-      context.print({
-        text: `无效的布尔值: ${valueStr}. 请使用 'true' 或 'false'.`,
-      });
-      return Ok.EMPTY;
-    }
-
-    let message = "";
-    switch (property) {
-      case "isAllowed":
-        groupConfig.isAllowed = boolValue;
-        message = `已设置 ${groupName}.isAllowed 为 ${boolValue}`;
-        break;
-      case "isNotice":
-        groupConfig.isNotice = boolValue;
-        message = `已设置 ${groupName}.isNotice 为 ${boolValue}`;
-        break;
-      default:
-        context.print({
-          text: `未知属性: ${property}. 可用属性: isAllowed, isNotice`,
-        });
-        return Ok.EMPTY;
-    }
-
-    saveConfig(config, context.configFilepath);
-    context.reloadConfig();
-    context.print({ text: message });
-    return Ok.EMPTY;
-  },
-};
-
-const editCommand: Command<AppContext> = {
-  name: "edit",
-  description: "编辑各项配置",
-  subcommands: new Map([["group", editGroupCommand]]),
-};
-
-const showConfigCommand: Command<AppContext> = {
-  name: "showconfig",
-  description: "显示配置",
-  options: new Map([
-    [
-      "type",
-      {
-        name: "type",
-        description: "要显示的配置类型 (groups, toast, all)",
-        required: false,
-        defaultValue: "all",
-      },
-    ],
-  ]),
-  action: ({ options, context }) => {
-    const type = options.type as string;
-    const config = loadConfig(context.configFilepath)!;
-    let message = "";
-
-    switch (type) {
-      case "groups": {
-        let groupsMessage = `管理员组: ${config.adminGroupConfig.groupName}\n`;
-        groupsMessage += `  用户: [${config.adminGroupConfig.groupUsers.join(
-          ", ",
-        )}]\n`;
-        groupsMessage += `  允许: ${config.adminGroupConfig.isAllowed}\n`;
-        groupsMessage += `  通知: ${config.adminGroupConfig.isNotice}\n\n`;
-
-        for (const group of config.usersGroups) {
-          groupsMessage += `用户组: ${group.groupName}\n`;
-          groupsMessage += `  用户: [${(group.groupUsers ?? []).join(", ")}]\n`;
-          groupsMessage += `  允许: ${group.isAllowed}\n`;
-          groupsMessage += `  通知: ${group.isNotice}\n`;
-          groupsMessage += "\n";
+      // Check if it's a boolean option
+      if (option === "isWelcome" || option === "isWarn") {
+        const boolValue = parseBoolean(valueStr);
+        if (boolValue === undefined) {
+          context.print({
+            text: `无效的布尔值: ${valueStr}. 请使用 'true' 或 'false'.`,
+          });
+          return Ok.EMPTY;
         }
-        message = groupsMessage.trim();
-        break;
+
+        switch (option) {
+          case "isWelcome":
+            config.isWelcome = boolValue;
+            message = `已设置全局欢迎功能为 ${boolValue}`;
+            break;
+          case "isWarn":
+            config.isWarn = boolValue;
+            message = `已设置全局警告功能为 ${boolValue}`;
+            break;
+        }
+      } else {
+        // Handle numeric options
+        const value = parseInt(valueStr);
+
+        if (isNaN(value)) {
+          context.print({ text: `无效的值: ${valueStr}. 必须是一个数字。` });
+          return Ok.EMPTY;
+        }
+
+        switch (option) {
+          case "warnInterval":
+            config.watchInterval = value;
+            message = `已设置警告间隔为 ${value}`;
+            break;
+          case "detectInterval":
+            config.detectInterval = value;
+            message = `已设置检测间隔为 ${value}`;
+            break;
+          case "detectRange":
+            config.detectRange = value;
+            message = `已设置检测范围为 ${value}`;
+            break;
+          case "noticeTimes":
+            config.noticeTimes = value;
+            message = `已设置通知次数为 ${value}`;
+            break;
+          default:
+            context.print({
+              text: `未知选项: ${option}. 可用选项: warnInterval, detectInterval, detectRange, noticeTimes, isWelcome, isWarn 或 <groupName>.isAllowed, <groupName>.isNotice, <groupName>.isWelcome`,
+            });
+            return Ok.EMPTY;
+        }
       }
 
-      case "toast": {
-        let toastMessage = "默认 Toast 配置:\n";
-        toastMessage += `  标题: ${config.welcomeToastConfig.title.text}\n`;
-        toastMessage += `  消息: ${config.welcomeToastConfig.msg.text}\n`;
-        toastMessage += `  前缀: ${
-          config.welcomeToastConfig.prefix ?? "none"
-        }\n`;
-        toastMessage += `  括号: ${
-          config.welcomeToastConfig.brackets ?? "none"
-        }\n`;
-        toastMessage += `  括号颜色: ${
-          config.welcomeToastConfig.bracketColor ?? "none"
-        }\n\n`;
-
-        toastMessage += "警告 Toast 配置:\n";
-        toastMessage += `  标题: ${config.warnToastConfig.title.text}\n`;
-        toastMessage += `  消息: ${config.warnToastConfig.msg.text}\n`;
-        toastMessage += `  前缀: ${config.warnToastConfig.prefix ?? "none"}\n`;
-        toastMessage += `  括号: ${
-          config.warnToastConfig.brackets ?? "none"
-        }\n`;
-        toastMessage += `  括号颜色: ${
-          config.warnToastConfig.bracketColor ?? "none"
-        }`;
-        message = toastMessage;
-        break;
-      }
-
-      case "all": {
-        let allMessage = `检测范围: ${config.detectRange}\n`;
-        allMessage += `检测间隔: ${config.detectInterval}\n`;
-        allMessage += `警告间隔: ${config.watchInterval}\n\n`;
-        allMessage +=
-          "使用 'showconfig --type groups' 或 'showconfig --type toast' 查看详细信息";
-        message = allMessage;
-        break;
-      }
-
-      default:
-        message = `无效类型: ${type}. 可用类型: groups, toast, all`;
-        break;
+      saveConfig(config, context.configFilepath);
+      context.reloadConfig();
+      context.print({ text: message });
+      return Ok.EMPTY;
     }
-    context.print({ text: message });
-    return Ok.EMPTY;
   },
 };
 
@@ -352,9 +366,7 @@ const rootCommand: Command<AppContext> = {
     ["add", addCommand],
     ["del", delCommand],
     ["list", listCommand],
-    ["set", setCommand],
-    ["edit", editCommand],
-    ["showconfig", showConfigCommand],
+    ["config", configCommand],
   ]),
   action: ({ context }) => {
     context.print([
@@ -383,6 +395,6 @@ const rootCommand: Command<AppContext> = {
 export function createAccessControlCli(context: AppContext) {
   return createCli(rootCommand, {
     globalContext: context,
-    writer: (msg) => context.print(msg),
+    writer: (msg) => context.print({ text: msg }),
   });
 }

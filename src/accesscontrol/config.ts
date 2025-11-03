@@ -21,6 +21,7 @@ interface AccessConfig {
   watchInterval: number;
   noticeTimes: number;
   detectRange: number;
+  isWelcome: boolean;
   isWarn: boolean;
   adminGroupConfig: UserGroupConfig;
   welcomeToastConfig: ToastConfig;
@@ -35,12 +36,13 @@ const defaultConfig: AccessConfig = {
   watchInterval: 10,
   noticeTimes: 2,
   isWarn: false,
+  isWelcome: true,
   adminGroupConfig: {
     groupName: "Admin",
     groupUsers: ["Selcon"],
     isAllowed: true,
     isNotice: true,
-    isWelcome: true,
+    isWelcome: false,
   },
   usersGroups: [
     {
@@ -48,6 +50,13 @@ const defaultConfig: AccessConfig = {
       groupUsers: [],
       isAllowed: true,
       isNotice: true,
+      isWelcome: false,
+    },
+    {
+      groupName: "TU",
+      groupUsers: [],
+      isAllowed: true,
+      isNotice: false,
       isWelcome: false,
     },
     {
