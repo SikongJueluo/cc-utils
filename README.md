@@ -31,7 +31,7 @@ A declarative, reactive TUI (Terminal User Interface) framework inspired by [Sol
 - **Component-Based:** Structure your UI into reusable components. See `src/tuiExample/main.ts` for a demo.
 
 ### 4. ccCLI Framework
-A lightweight, functional-style framework for building command-line interfaces (CLIs) within CC:Tweaked. It supports nested commands, arguments, options, and automatic help generation. See the [ccCLI Documentation](docs/ccCLI.md) for more details.
+A lightweight, functional-style framework for building command-line interfaces (CLIs) within CC:Tweaked. It supports nested commands, arguments, options, and automatic help generation. See the [ccCLI Documentation](./docs/ccCLI.md) for more details.
 
 - **Declarative API:** Define commands, arguments, and options using a simple, object-based structure.
 - **Nested Commands:** Organize complex applications with subcommands (e.g., `mycli command subcommand`).
@@ -40,8 +40,8 @@ A lightweight, functional-style framework for building command-line interfaces (
 - **Type-Safe:** Built with TypeScript for robust development.
 
 ### 5. Core Libraries
-- **`ChatManager`:** A powerful manager for `chatBox` peripherals that handles message queuing, cooldowns, and asynchronous sending/receiving. See the [ChatManager Documentation](docs/ChatManager.md) for more details.
-- **`ccLog`:** A robust logging library with automatic, time-based log file rotation.
+- **`ChatManager`:** A powerful manager for `chatBox` peripherals that handles message queuing, cooldowns, and asynchronous sending/receiving. See the [ChatManager Documentation](./docs/ChatManager.md) for more details.
+- **`ccStructLog`:** A modern, structured logging library inspired by Python's `structlog`. It provides a flexible, extensible framework based on processors, renderers, and streams, designed for CC:Tweaked. See the [ccStructLog Documentation](./docs/ccStructLog.md) for more details.
 - **`PeripheralManager`:** A utility for easily finding and requiring peripherals by name or type.
 - **`CraftManager`:** A library for parsing and executing crafting recipes from Create mod packages.
 
@@ -152,4 +152,4 @@ tuiExample
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See the [LICENSE](./LICENSE) file for details.

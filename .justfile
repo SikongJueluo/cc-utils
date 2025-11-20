@@ -13,13 +13,16 @@ build-accesscontrol:
 build-test:
     pnpm tstl -p ./targets/tsconfig.test.json
 
-build-example: build-tuiExample build-cliExample
+build-example: build-tuiExample build-cliExample build-logExample
 
 build-tuiExample:
     pnpm tstl -p ./targets/tsconfig.tuiExample.json
 
 build-cliExample:
     pnpm tstl -p ./targets/tsconfig.cliExample.json
+
+build-logExample:
+    pnpm tstl -p ./targets/tsconfig.logExample.json
 
 sync:
     rsync --delete -r "./build/" "{{ sync-path }}"

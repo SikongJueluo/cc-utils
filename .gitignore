@@ -5,7 +5,7 @@ build/
 reference/
 src/**/*.md
 
-QWEN.md
+.ai/
 
 # Devenv
 .devenv*
