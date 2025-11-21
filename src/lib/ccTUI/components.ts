@@ -18,42 +18,42 @@ export type DivProps = BaseProps;
  * Props for label component
  */
 export type LabelProps = BaseProps & {
-  /** Whether to automatically wrap long text. Defaults to false. */
-  wordWrap?: boolean;
+    /** Whether to automatically wrap long text. Defaults to false. */
+    wordWrap?: boolean;
 };
 
 /**
  * Props for button component
  */
 export type ButtonProps = BaseProps & {
-  /** Click handler */
-  onClick?: () => void;
+    /** Click handler */
+    onClick?: () => void;
 };
 
 /**
  * Props for input component
  */
 export type InputProps = BaseProps & {
-  /** Input type */
-  type?: "text" | "checkbox";
-  /** Value signal for text input */
-  value?: Accessor<string> | Signal<string>;
-  /** Input handler for text input */
-  onInput?: Setter<string> | ((value: string) => void);
-  /** Checked signal for checkbox */
-  checked?: Accessor<boolean> | Signal<boolean>;
-  /** Change handler for checkbox */
-  onChange?: Setter<boolean> | ((checked: boolean) => void);
-  /** Placeholder text */
-  placeholder?: string;
+    /** Input type */
+    type?: "text" | "checkbox";
+    /** Value signal for text input */
+    value?: Accessor<string> | Signal<string>;
+    /** Input handler for text input */
+    onInput?: Setter<string> | ((value: string) => void);
+    /** Checked signal for checkbox */
+    checked?: Accessor<boolean> | Signal<boolean>;
+    /** Change handler for checkbox */
+    onChange?: Setter<boolean> | ((checked: boolean) => void);
+    /** Placeholder text */
+    placeholder?: string;
 };
 
 /**
  * Props for form component
  */
 export type FormProps = BaseProps & {
-  /** Submit handler */
-  onSubmit?: () => void;
+    /** Submit handler */
+    onSubmit?: () => void;
 };
 
 /**
@@ -72,20 +72,20 @@ export type FormProps = BaseProps & {
  * ```
  */
 export function div(
-  props: DivProps,
-  ...children: (UIObject | string | Accessor<string>)[]
+    props: DivProps,
+    ...children: (UIObject | string | Accessor<string>)[]
 ): UIObject {
-  // Convert string children to text nodes
-  const uiChildren = children.map((child) => {
-    if (typeof child === "string" || typeof child === "function") {
-      return createTextNode(child);
-    }
-    return child;
-  });
+    // Convert string children to text nodes
+    const uiChildren = children.map((child) => {
+        if (typeof child === "string" || typeof child === "function") {
+            return createTextNode(child);
+        }
+        return child;
+    });
 
-  const node = new UIObject("div", props, uiChildren);
-  uiChildren.forEach((child) => (child.parent = node));
-  return node;
+    const node = new UIObject("div", props, uiChildren);
+    uiChildren.forEach((child) => (child.parent = node));
+    return node;
 }
 
 /**
@@ -108,81 +108,84 @@ export function div(
  * @returns An array of words and whitespace.
  */
 function splitByWhitespace(text: string): string[] {
-  if (!text) return [];
-  const parts: string[] = [];
-  let currentWord = "";
-  let currentWhitespace = "";
+    if (!text) return [];
+    const parts: string[] = [];
+    let currentWord = "";
+    let currentWhitespace = "";
 
-  for (const char of text) {
-    if (char === " " || char === "\t" || char === "\n" || char === "\r") {
-      if (currentWord.length > 0) {
-        parts.push(currentWord);
-        currentWord = "";
-      }
-      currentWhitespace += char;
-    } else {
-      if (currentWhitespace.length > 0) {
-        parts.push(currentWhitespace);
-        currentWhitespace = "";
-      }
-      currentWord += char;
+    for (const char of text) {
+        if (char === " " || char === "\t" || char === "\n" || char === "\r") {
+            if (currentWord.length > 0) {
+                parts.push(currentWord);
+                currentWord = "";
+            }
+            currentWhitespace += char;
+        } else {
+            if (currentWhitespace.length > 0) {
+                parts.push(currentWhitespace);
+                currentWhitespace = "";
+            }
+            currentWord += char;
+        }
     }
-  }
 
-  if (currentWord.length > 0) {
-    parts.push(currentWord);
-  }
-  if (currentWhitespace.length > 0) {
-    parts.push(currentWhitespace);
-  }
+    if (currentWord.length > 0) {
+        parts.push(currentWord);
+    }
+    if (currentWhitespace.length > 0) {
+        parts.push(currentWhitespace);
+    }
 
-  return parts;
+    return parts;
 }
 
 export function label(
-  props: LabelProps,
-  text: string | Accessor<string>,
+    props: LabelProps,
+    text: string | Accessor<string>,
 ): UIObject {
-  context.logger?.debug(`label : ${textutils.serialiseJSON(props)}`);
-  context.logger?.debug(
-    `label text: ${typeof text == "string" ? text : text()}`,
-  );
-  if (props.wordWrap === true) {
-    const p = { ...props };
-    delete p.wordWrap;
-    const containerProps: DivProps = {
-      ...p,
-      class: `${p.class ?? ""} flex flex-col`,
-    };
+    context.logger?.debug(`label : ${textutils.serialiseJSON(props)}`);
+    context.logger?.debug(
+        `label text: ${typeof text == "string" ? text : text()}`,
+    );
+    if (props.wordWrap === true) {
+        const p = { ...props };
+        delete p.wordWrap;
+        const containerProps: DivProps = {
+            ...p,
+            class: `${p.class ?? ""} flex flex-col`,
+        };
 
-    if (typeof text === "string") {
-      // Handle static strings
-      const words = splitByWhitespace(text);
-      const children = words.map((word) => createTextNode(word));
-      const node = new UIObject("div", containerProps, children);
-      children.forEach((child) => (child.parent = node));
-      return node;
-    } else {
-      // Handle reactive strings (Accessor<string>)
-      const sentences = createMemo(() => {
-        const words = splitByWhitespace(text());
-        const ret = concatSentence(words, 40);
-        context.logger?.debug(`label words changed : [ ${ret.join(",")} ]`);
-        return ret;
-      });
+        if (typeof text === "string") {
+            // Handle static strings
+            const words = splitByWhitespace(text);
+            const children = words.map((word) => createTextNode(word));
+            const node = new UIObject("div", containerProps, children);
+            children.forEach((child) => (child.parent = node));
+            return node;
+        } else {
+            // Handle reactive strings (Accessor<string>)
+            const sentences = createMemo(() => {
+                const words = splitByWhitespace(text());
+                const ret = concatSentence(words, 40);
+                context.logger?.debug(
+                    `label words changed : [ ${ret.join(",")} ]`,
+                );
+                return ret;
+            });
 
-      const forNode = For({ class: `flex flex-col`, each: sentences }, (word) =>
-        label({ class: p.class }, word),
-      );
+            const forNode = For(
+                { class: `flex flex-col`, each: sentences },
+                (word) => label({ class: p.class }, word),
+            );
 
-      return forNode;
+            return forNode;
+        }
     }
-  }
 
-  const textNode = createTextNode(text);
-  const node = new UIObject("label", props, [textNode]);
-  textNode.parent = node;
-  return node;
+    const textNode = createTextNode(text);
+    const node = new UIObject("label", props, [textNode]);
+    textNode.parent = node;
+    return node;
 }
 
 /**
@@ -192,7 +195,7 @@ export function label(
  * @returns UIObject representing h1
  */
 export function h1(text: string | Accessor<string>): UIObject {
-  return label({ class: "heading-1" }, text);
+    return label({ class: "heading-1" }, text);
 }
 
 /**
@@ -202,7 +205,7 @@ export function h1(text: string | Accessor<string>): UIObject {
  * @returns UIObject representing h2
  */
 export function h2(text: string | Accessor<string>): UIObject {
-  return label({ class: "heading-2" }, text);
+    return label({ class: "heading-2" }, text);
 }
 
 /**
@@ -212,7 +215,7 @@ export function h2(text: string | Accessor<string>): UIObject {
  * @returns UIObject representing h3
  */
 export function h3(text: string | Accessor<string>): UIObject {
-  return label({ class: "heading-3" }, text);
+    return label({ class: "heading-3" }, text);
 }
 
 /**
@@ -228,10 +231,10 @@ export function h3(text: string | Accessor<string>): UIObject {
  * ```
  */
 export function button(props: ButtonProps, text: string): UIObject {
-  const textNode = createTextNode(text);
-  const node = new UIObject("button", props, [textNode]);
-  textNode.parent = node;
-  return node;
+    const textNode = createTextNode(text);
+    const node = new UIObject("button", props, [textNode]);
+    textNode.parent = node;
+    return node;
 }
 
 /**
@@ -252,18 +255,18 @@ export function button(props: ButtonProps, text: string): UIObject {
  * ```
  */
 export function input(props: InputProps): UIObject {
-  // Normalize signal tuples to just the accessor
-  const normalizedProps = { ...props };
+    // Normalize signal tuples to just the accessor
+    const normalizedProps = { ...props };
 
-  if (Array.isArray(normalizedProps.value)) {
-    normalizedProps.value = normalizedProps.value[0];
-  }
+    if (Array.isArray(normalizedProps.value)) {
+        normalizedProps.value = normalizedProps.value[0];
+    }
 
-  if (Array.isArray(normalizedProps.checked)) {
-    normalizedProps.checked = normalizedProps.checked[0];
-  }
+    if (Array.isArray(normalizedProps.checked)) {
+        normalizedProps.checked = normalizedProps.checked[0];
+    }
 
-  return new UIObject("input", normalizedProps, []);
+    return new UIObject("input", normalizedProps, []);
 }
 
 /**
@@ -282,18 +285,18 @@ export function input(props: InputProps): UIObject {
  * ```
  */
 export function form(
-  props: FormProps,
-  ...children: (UIObject | string | Accessor<string>)[]
+    props: FormProps,
+    ...children: (UIObject | string | Accessor<string>)[]
 ): UIObject {
-  // Convert string children to text nodes
-  const uiChildren = children.map((child) => {
-    if (typeof child === "string" || typeof child === "function") {
-      return createTextNode(child);
-    }
-    return child;
-  });
+    // Convert string children to text nodes
+    const uiChildren = children.map((child) => {
+        if (typeof child === "string" || typeof child === "function") {
+            return createTextNode(child);
+        }
+        return child;
+    });
 
-  const node = new UIObject("form", props, uiChildren);
-  uiChildren.forEach((child) => (child.parent = node));
-  return node;
+    const node = new UIObject("form", props, uiChildren);
+    uiChildren.forEach((child) => (child.parent = node));
+    return node;
 }

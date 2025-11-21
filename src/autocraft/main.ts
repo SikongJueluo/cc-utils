@@ -6,6 +6,8 @@ import {
 import { Queue } from "@/lib/datatype/Queue";
 import {
     ConsoleStream,
+    DAY,
+    FileStream,
     Logger,
     LogLevel,
     processor,
@@ -18,7 +20,17 @@ const logger = new Logger({
         processor.addTimestamp(),
     ],
     renderer: textRenderer,
-    streams: [new ConsoleStream()],
+    streams: [
+        new ConsoleStream(),
+        new FileStream({
+            filePath: "autocraft.log",
+            rotationInterval: DAY,
+            autoCleanup: {
+                enabled: true,
+                maxFiles: 3,
+            },
+        }),
+    ],
 });
 
 const peripheralsNames = {
@@ -47,7 +59,8 @@ enum State {
 }
 
 function main() {
-    while (true) {
+    let isFinishedInitPeripheral = false;
+    while (!isFinishedInitPeripheral) {
         try {
             packsInventory = peripheral.wrap(
                 peripheralsNames.packsInventory,
@@ -67,7 +80,7 @@ function main() {
             turtleLocalName = wiredModem.getNameLocal();
 
             logger.info("Peripheral initialization complete...");
-            break;
+            isFinishedInitPeripheral = true;
         } catch (error) {
             logger.warn(
                 `Peripheral initialization failed for ${String(error)}, try again...`,

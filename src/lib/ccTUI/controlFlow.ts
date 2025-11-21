@@ -9,34 +9,34 @@ import { Accessor, createEffect } from "./reactivity";
  * Props for For component
  */
 export type ForProps<T> = {
-  /** Signal or accessor containing the array to iterate over */
-  each: Accessor<T[]>;
+    /** Signal or accessor containing the array to iterate over */
+    each: Accessor<T[]>;
 } & Record<string, unknown>;
 
 /**
  * Props for Show component
  */
 export type ShowProps = {
-  /** Condition accessor - when true, shows the child */
-  when: Accessor<boolean>;
-  /** Optional fallback to show when condition is false */
-  fallback?: UIObject;
+    /** Condition accessor - when true, shows the child */
+    when: Accessor<boolean>;
+    /** Optional fallback to show when condition is false */
+    fallback?: UIObject;
 } & Record<string, unknown>;
 
 /**
  * Props for Switch component
  */
 export type SwitchProps = {
-  /** Optional fallback to show when no Match condition is met */
-  fallback?: UIObject;
+    /** Optional fallback to show when no Match condition is met */
+    fallback?: UIObject;
 } & Record<string, unknown>;
 
 /**
  * Props for Match component
  */
 export type MatchProps = {
-  /** Condition accessor - when truthy, this Match will be selected */
-  when: Accessor<boolean>;
+    /** Condition accessor - when truthy, this Match will be selected */
+    when: Accessor<boolean>;
 } & Record<string, unknown>;
 
 /**
@@ -61,42 +61,42 @@ export type MatchProps = {
  * ```
  */
 export function For<T>(
-  props: ForProps<T>,
-  renderFn: (item: T, index: Accessor<number>) => UIObject,
+    props: ForProps<T>,
+    renderFn: (item: T, index: Accessor<number>) => UIObject,
 ): UIObject {
-  const container = new UIObject("for", props, []);
+    const container = new UIObject("for", props, []);
 
-  // Track rendered items
-  let renderedItems: UIObject[] = [];
+    // Track rendered items
+    let renderedItems: UIObject[] = [];
 
-  /**
-   * Update the list when the array changes
-   */
-  const updateList = () => {
-    const items = props.each();
+    /**
+     * Update the list when the array changes
+     */
+    const updateList = () => {
+        const items = props.each();
 
-    // Clear old items
-    renderedItems.forEach((item) => item.unmount());
-    container.children = [];
-    renderedItems = [];
+        // Clear old items
+        renderedItems.forEach((item) => item.unmount());
+        container.children = [];
+        renderedItems = [];
 
-    // Render new items
-    items.forEach((item, index) => {
-      const indexAccessor = () => index;
-      const rendered = renderFn(item, indexAccessor);
-      rendered.parent = container;
-      container.children.push(rendered);
-      renderedItems.push(rendered);
-      rendered.mount();
+        // Render new items
+        items.forEach((item, index) => {
+            const indexAccessor = () => index;
+            const rendered = renderFn(item, indexAccessor);
+            rendered.parent = container;
+            container.children.push(rendered);
+            renderedItems.push(rendered);
+            rendered.mount();
+        });
+    };
+
+    // Create effect to watch for changes
+    createEffect(() => {
+        updateList();
     });
-  };
 
-  // Create effect to watch for changes
-  createEffect(() => {
-    updateList();
-  });
-
-  return container;
+    return container;
 }
 
 /**
@@ -120,44 +120,44 @@ export function For<T>(
  * ```
  */
 export function Show(props: ShowProps, child: UIObject): UIObject {
-  const container = new UIObject("show", props, []);
+    const container = new UIObject("show", props, []);
 
-  let currentChild: UIObject | undefined = undefined;
+    let currentChild: UIObject | undefined = undefined;
 
-  /**
-   * Update which child is shown based on condition
-   */
-  const updateChild = () => {
-    const condition = props.when();
+    /**
+     * Update which child is shown based on condition
+     */
+    const updateChild = () => {
+        const condition = props.when();
 
-    // Unmount current child
-    if (currentChild !== undefined) {
-      currentChild.unmount();
-      container.removeChild(currentChild);
-    }
+        // Unmount current child
+        if (currentChild !== undefined) {
+            currentChild.unmount();
+            container.removeChild(currentChild);
+        }
 
-    // Mount appropriate child
-    if (condition) {
-      currentChild = child;
-    } else if (props.fallback !== undefined) {
-      currentChild = props.fallback;
-    } else {
-      currentChild = undefined;
-      return;
-    }
+        // Mount appropriate child
+        if (condition) {
+            currentChild = child;
+        } else if (props.fallback !== undefined) {
+            currentChild = props.fallback;
+        } else {
+            currentChild = undefined;
+            return;
+        }
 
-    if (currentChild !== undefined) {
-      container.appendChild(currentChild);
-      currentChild.mount();
-    }
-  };
+        if (currentChild !== undefined) {
+            container.appendChild(currentChild);
+            currentChild.mount();
+        }
+    };
 
-  // Create effect to watch for condition changes
-  createEffect(() => {
-    updateChild();
-  });
+    // Create effect to watch for condition changes
+    createEffect(() => {
+        updateChild();
+    });
 
-  return container;
+    return container;
 }
 
 /**
@@ -181,58 +181,58 @@ export function Show(props: ShowProps, child: UIObject): UIObject {
  * ```
  */
 export function Switch(props: SwitchProps, ...matches: UIObject[]): UIObject {
-  const container = new UIObject("switch", props, []);
+    const container = new UIObject("switch", props, []);
 
-  let currentChild: UIObject | undefined = undefined;
+    let currentChild: UIObject | undefined = undefined;
 
-  /**
-   * Evaluate all Match conditions and show the first truthy one
-   */
-  const updateChild = () => {
-    // Unmount current child
-    if (currentChild !== undefined) {
-      currentChild.unmount();
-      container.removeChild(currentChild);
-    }
+    /**
+     * Evaluate all Match conditions and show the first truthy one
+     */
+    const updateChild = () => {
+        // Unmount current child
+        if (currentChild !== undefined) {
+            currentChild.unmount();
+            container.removeChild(currentChild);
+        }
 
-    // Find the first Match with a truthy condition
-    for (const match of matches) {
-      if (match.type === "match") {
-        const matchProps = match.props as MatchProps;
-        const condition = matchProps.when();
+        // Find the first Match with a truthy condition
+        for (const match of matches) {
+            if (match.type === "match") {
+                const matchProps = match.props as MatchProps;
+                const condition = matchProps.when();
 
-        if (
-          condition !== undefined &&
-          condition !== null &&
-          condition !== false
-        ) {
-          // This Match's condition is truthy, use it
-          if (match.children.length > 0) {
-            currentChild = match.children[0];
+                if (
+                    condition !== undefined &&
+                    condition !== null &&
+                    condition !== false
+                ) {
+                    // This Match's condition is truthy, use it
+                    if (match.children.length > 0) {
+                        currentChild = match.children[0];
+                        container.appendChild(currentChild);
+                        currentChild.mount();
+                    }
+                    return;
+                }
+            }
+        }
+
+        // No Match condition was truthy, use fallback if available
+        if (props.fallback !== undefined) {
+            currentChild = props.fallback;
             container.appendChild(currentChild);
             currentChild.mount();
-          }
-          return;
+        } else {
+            currentChild = undefined;
         }
-      }
-    }
+    };
 
-    // No Match condition was truthy, use fallback if available
-    if (props.fallback !== undefined) {
-      currentChild = props.fallback;
-      container.appendChild(currentChild);
-      currentChild.mount();
-    } else {
-      currentChild = undefined;
-    }
-  };
+    // Create effect to watch for condition changes
+    createEffect(() => {
+        updateChild();
+    });
 
-  // Create effect to watch for condition changes
-  createEffect(() => {
-    updateChild();
-  });
-
-  return container;
+    return container;
 }
 
 /**
@@ -253,7 +253,7 @@ export function Switch(props: SwitchProps, ...matches: UIObject[]): UIObject {
  * ```
  */
 export function Match(props: MatchProps, child: UIObject): UIObject {
-  const container = new UIObject("match", props, [child]);
-  child.parent = container;
-  return container;
+    const container = new UIObject("match", props, [child]);
+    child.parent = container;
+    return container;
 }

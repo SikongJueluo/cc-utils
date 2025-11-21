@@ -11,10 +11,12 @@ import {
     ConsoleStream,
     DAY,
     FileStream,
-    Logger,
+    getStructLogger,
+    LoggerOptions,
     LogLevel,
     MB,
     processor,
+    setStructLoggerConfig,
     textRenderer,
 } from "@/lib/ccStructLog";
 
@@ -22,7 +24,7 @@ const args = [...$vararg];
 
 // Init Log
 let isOnConsoleStream = true;
-const logger = new Logger({
+const loggerConfig: LoggerOptions = {
     processors: [
         processor.filterByLevel(LogLevel.Info),
         processor.addTimestamp(),
@@ -40,7 +42,9 @@ const logger = new Logger({
             },
         }),
     ],
-});
+};
+setStructLoggerConfig(loggerConfig);
+const logger = getStructLogger();
 
 // Load Config
 const configFilepath = `${shell.dir()}/access.config.json`;
@@ -79,6 +83,11 @@ function reloadConfig() {
     gWatchPlayersInfo = [];
     releaser.release();
     logger.info("Reload config successfully!");
+    const tutorial: string[] = [];
+    tutorial.push("Access Control System started.");
+    tutorial.push("\tPress 'c' to open configuration TUI.");
+    tutorial.push("\tPress 'r' to reload configuration.");
+    print(tutorial.join("\n"));
 }
 
 function safeParseTextComponent(

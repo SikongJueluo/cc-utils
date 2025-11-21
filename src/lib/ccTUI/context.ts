@@ -4,20 +4,20 @@
  * to all components without prop drilling.
  */
 
-import type { CCLog } from "../ccLog";
+import { Logger } from "@/lib/ccStructLog";
 
 /**
  * The global context object for the TUI application.
  * This will be set by the Application instance on creation.
  */
-export const context: { logger: CCLog | undefined } = {
-  logger: undefined,
+export const context: { logger: Logger | undefined } = {
+    logger: undefined,
 };
 
 /**
  * Sets the global logger instance.
  * @param l The logger instance.
  */
-export function setLogger(l: CCLog): void {
-  context.logger = l;
+export function setLogger(l: Logger): void {
+    context.logger = l;
 }
