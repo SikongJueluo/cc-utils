@@ -5,6 +5,7 @@ A collection of advanced utilities and libraries for Minecraft ComputerCraft, wr
 ## Features
 
 ### 1. Access Control System
+
 A comprehensive system for managing player access to a specific area. It uses a `playerDetector` to monitor for players in range and a `chatBox` to interact with them and administrators.
 
 - **Player Detection:** Monitors a configurable range for players.
@@ -15,6 +16,7 @@ A comprehensive system for managing player access to a specific area. It uses a 
 - **Logging:** Detailed logging of events, viewable with the included `logviewer` program.
 
 ### 2. AutoCraft System
+
 An automated crafting solution designed to work with the Create mod's packaged recipes.
 
 - **Automated Crafting:** Detects cardboard packages in a chest and automatically crafts the recipes they contain.
@@ -22,6 +24,7 @@ An automated crafting solution designed to work with the Create mod's packaged r
 - **Inventory Management:** Manages pulling ingredients from a source inventory and pushing crafted items to a destination.
 
 ### 3. ccTUI Framework
+
 A declarative, reactive TUI (Terminal User Interface) framework inspired by [SolidJS](https://www.solidjs.com/) for building complex and interactive interfaces in ComputerCraft.
 
 - **Declarative Syntax:** Build UIs with simple, composable functions like `div`, `label`, `button`, and `input`.
@@ -31,6 +34,7 @@ A declarative, reactive TUI (Terminal User Interface) framework inspired by [Sol
 - **Component-Based:** Structure your UI into reusable components. See `src/tuiExample/main.ts` for a demo.
 
 ### 4. ccCLI Framework
+
 A lightweight, functional-style framework for building command-line interfaces (CLIs) within CC:Tweaked. It supports nested commands, arguments, options, and automatic help generation. See the [ccCLI Documentation](./docs/ccCLI.md) for more details.
 
 - **Declarative API:** Define commands, arguments, and options using a simple, object-based structure.
@@ -40,6 +44,7 @@ A lightweight, functional-style framework for building command-line interfaces (
 - **Type-Safe:** Built with TypeScript for robust development.
 
 ### 5. Core Libraries
+
 - **`ChatManager`:** A powerful manager for `chatBox` peripherals that handles message queuing, cooldowns, and asynchronous sending/receiving. See the [ChatManager Documentation](./docs/ChatManager.md) for more details.
 - **`ccStructLog`:** A modern, structured logging library inspired by Python's `structlog`. It provides a flexible, extensible framework based on processors, renderers, and streams, designed for CC:Tweaked. See the [ccStructLog Documentation](./docs/ccStructLog.md) for more details.
 - **`PeripheralManager`:** A utility for easily finding and requiring peripherals by name or type.
@@ -54,6 +59,7 @@ A lightweight, functional-style framework for building command-line interfaces (
 ## Setup & Installation
 
 1.  **Clone the repository:**
+
     ```sh
     git clone <repository-url>
     cd cc-utils
@@ -69,6 +75,7 @@ A lightweight, functional-style framework for building command-line interfaces (
 This project uses `just` to manage build tasks. The compiled Lua files will be placed in the `build/` directory.
 
 - **Build all modules:**
+
   ```sh
   just build
   ```
@@ -89,7 +96,7 @@ To deploy the built programs to your in-game computer, you need to configure the
     ```justfile
     # Example for Linux
     sync-path := "/home/user/.local/share/craftos-pc/computer/0/user/"
-    
+
     # Example for Windows
     # sync-path := "/cygdrive/c/Users/YourUser/AppData/Roaming/CraftOS-PC/computer/0/user/"
     ```
@@ -105,43 +112,29 @@ To deploy the built programs to your in-game computer, you need to configure the
 ### Access Control
 
 - **Start the system:**
+
   ```sh
   accesscontrol start
   ```
 
 - **Open the configuration TUI:**
+
   ```sh
   accesscontrol config
   ```
-  Alternatively, press `c` while the main program is running.
 
-- **View logs:**
-  ```sh
-  logviewer accesscontrol.log
-  ```
+  Alternatively, press `c` while the main program is running.
 
 - **Admin Commands (in-game chat):**
   ```
-  @AC /help
-  @AC /add user Notch
-  @AC /list
+  @AC help
+  @AC add user Notch
+  @AC list
   ```
 
 ### AutoCraft
 
 The autocraft program runs in the background. Simply run it on a turtle with the correct peripheral setup (see `src/autocraft/main.ts`). It will automatically process packages placed in the designated chest.
-
-```sh
-autocraft
-```
-
-### TUI Example
-
-Run the example program to see a demonstration of the `ccTUI` framework.
-
-```sh
-tuiExample
-```
 
 ## Development
 

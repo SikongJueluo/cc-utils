@@ -11,16 +11,37 @@ A modern, structured logging library for CC:Tweaked, inspired by Python's struct
 
 ## Quick Start
 
-```typescript
-import { createDevLogger } from "@/lib/ccStructLog";
+The easiest way to get started is to create a `Logger` instance and configure it with processors, a renderer, and streams.
 
-// Create a development logger
-const logger = createDevLogger();
+Here's a simple example of a logger that prints colored, human-readable messages to the console:
+
+```typescript
+import {
+    Logger,
+    LogLevel,
+    processor,
+    textRenderer,
+    ConsoleStream,
+} from "@/lib/ccStructLog";
+
+// Create a logger
+const logger = new Logger({
+    processors: [
+        processor.addTimestamp({ format: "%T" }), // Add HH:MM:SS timestamp
+        processor.filterByLevel(LogLevel.Info),   // Log Info and higher
+        processor.addSource("MyApp"),
+    ],
+    renderer: textRenderer,
+    streams: [new ConsoleStream()],
+});
 
 // Log messages with context
 logger.info("Server started", { port: 8080, version: "1.0.0" });
 logger.warn("Low disk space", { available: 1024, threshold: 2048 });
 logger.error("Connection failed", { host: "example.com", retries: 3 });
+
+// This debug message will be filtered out by `filterByLevel`
+logger.debug("This is a debug message.");
 ```
 
 ## Core Concepts
@@ -46,48 +67,69 @@ export enum LogLevel {
 4. **Render**: The final event is converted to a string by a renderer (e.g., `textRenderer`, `jsonRenderer`).
 5. **Output**: The string is sent to one or more streams (e.g., console, file).
 
-## Pre-configured Loggers
+## Common Configurations
 
 ### Development Logger
-Optimized for development and debugging with human-readable console output.
+A typical development logger is configured for human-readable console output with timestamps and colors.
 
 ```typescript
-import { createDevLogger, LogLevel } from "@/lib/ccStructLog";
+import {
+    Logger,
+    processor,
+    textRenderer,
+    ConsoleStream,
+} from "@/lib/ccStructLog";
 
-const logger = createDevLogger({
-    source: "MyApp",
-    includeComputerId: true,
+const devLogger = new Logger({
+    processors: [
+        processor.addTimestamp({ format: "%F %T" }), // YYYY-MM-DD HH:MM:SS
+        processor.addSource("DevApp"),
+        processor.addComputerId(),
+    ],
+    renderer: textRenderer,
+    streams: [new ConsoleStream()],
 });
 
-logger.debug("This is a debug message.");
+devLogger.debug("This is a debug message.", { user: "dev" });
 ```
 
 ### Production Logger
-Optimized for production with JSON-formatted file output and daily rotation.
-
-```typescript
-import { createProdLogger, DAY } from "@/lib/ccStructLog";
-
-const logger = createProdLogger("app.log", {
-    source: "MyApp",
-    rotationInterval: DAY, // Rotate daily
-    includeConsole: false, // Don't log to console
-});
-
-logger.info("Application is running in production.");
-```
-
-## Custom Configuration
-
-You can create a logger with a completely custom setup.
+A production logger is often configured to write machine-readable JSON logs to a file with daily rotation.
 
 ```typescript
 import {
     Logger,
     LogLevel,
-    addFullTimestamp,
-    addComputerId,
-    addSource,
+    processor,
+    jsonRenderer,
+    FileStream,
+    DAY,
+} from "@/lib/ccStructLog";
+
+const prodLogger = new Logger({
+    processors: [
+        processor.addTimestamp(), // Default format is %F %T
+        processor.filterByLevel(LogLevel.Info),
+        processor.addSource("ProdApp"),
+        processor.addComputerId(),
+    ],
+    renderer: jsonRenderer,
+    streams: [
+        new FileStream("app.log", DAY), // Rotate daily
+    ],
+});
+
+prodLogger.info("Application is running in production.");
+```
+
+## Custom Configuration
+
+You can create a logger with any combination of processors, renderers, and streams.
+
+```typescript
+import {
+    Logger,
+    processor,
     jsonRenderer,
     FileStream,
     ConsoleStream,
@@ -96,9 +138,9 @@ import {
 
 const logger = new Logger({
     processors: [
-        addFullTimestamp(),
-        addComputerId(),
-        addSource("MyApplication"),
+        processor.addTimestamp(),
+        processor.addComputerId(),
+        processor.addSource("MyApplication"),
     ],
     renderer: jsonRenderer,
     streams: [
@@ -112,31 +154,40 @@ logger.info("Custom logger reporting for duty.", { user: "admin" });
 
 ## Processors
 
-Processors are functions that modify, enrich, or filter log events before they are rendered.
+Processors are functions that modify, enrich, or filter log events before they are rendered. They are all available under the `processor` namespace.
 
 ### Built-in Processors
 ```typescript
-import {
-    addTimestamp,         // Add structured timestamp
-    addFormattedTimestamp,  // Add HH:MM:SS string
-    addFullTimestamp,     // Add YYYY-MM-DD HH:MM:SS string
-    filterByLevel,        // Filter by minimum level
-    filterBy,             // Filter based on a custom predicate
-    addSource,            // Add source/logger name
-    addComputerId,        // Add computer ID
-    addComputerLabel,     // Add computer label
-    addStaticFields,      // Add static fields to all events
-    transformField,       // Transform a specific field's value
-    removeFields,         // Remove sensitive fields
-} from "@/lib/ccStructLog";
+import { Logger, LogLevel, processor } from "@/lib/ccStructLog";
 
 // Usage example
 const logger = new Logger({
     processors: [
-        addTimestamp(),
-        addSource("MyApp"),
-        filterByLevel(LogLevel.Warn), // Only allow Warn, Error, Fatal
-        removeFields(["password", "token"]),
+        // Adds a timestamp. Format is compatible with os.date().
+        // Default: "%F %T" (e.g., "2023-10-27 15:30:00")
+        processor.addTimestamp({ format: "%T" }), // e.g., "15:30:00"
+
+        // Filter by minimum level
+        processor.filterByLevel(LogLevel.Warn), // Only allow Warn, Error, Fatal
+
+        // Filter based on a custom predicate
+        processor.filterBy((event) => event.get("user") === "admin"),
+
+        // Add source/logger name
+        processor.addSource("MyApp"),
+
+        // Add computer ID or label
+        processor.addComputerId(),
+        processor.addComputerLabel(),
+
+        // Add static fields to all events
+        processor.addStaticFields({ env: "production", version: "1.2.3" }),
+
+        // Transform a specific field's value
+        processor.transformField("user_id", (id) => `user_${id}`),
+
+        // Remove sensitive fields
+        processor.removeFields(["password", "token"]),
     ],
     // ... other config
 });
@@ -172,10 +223,10 @@ Renderers convert the final `LogEvent` object into a string.
 import { textRenderer, jsonRenderer } from "@/lib/ccStructLog";
 
 // textRenderer: Human-readable, colored output for the console.
-// Example: 15:30:45 [INFO] Message key=value
+// Example: [15:30:45] [INFO] Message 	key=value
 
 // jsonRenderer: Machine-readable JSON output.
-// Example: {"level":"info","message":"Message","key":"value","timestamp":"..."}
+// Example: {"level":2,"message":"Message","key":"value","timestamp":"15:30:45"}
 ```
 
 ## Streams
@@ -185,12 +236,14 @@ Streams handle the final output destination. You can use multiple streams to sen
 ### Built-in Streams
 ```typescript
 import {
-    ConsoleStream,      // Output to CC:Tweaked terminal with colors
-    FileStream,         // Output to file with rotation support
-    BufferStream,       // Store in an in-memory buffer
-    NullStream,         // Discard all output
+    ConsoleStream,
+    FileStream,
+    BufferStream,
+    NullStream,
+    ConditionalStream,
+    LogLevel,
+    DAY,
 } from "@/lib/ccStructLog";
-import { ConditionalStream } from "@/lib/ccStructLog/streams"; // Note direct import
 
 // File stream with daily rotation
 const fileStream = new FileStream("app.log", DAY);
@@ -207,7 +260,7 @@ const errorStream = new ConditionalStream(
 
 ## File Rotation
 
-`FileStream` supports automatic file rotation based on time intervals.
+`FileStream` supports automatic file rotation based on time intervals. The rotation interval is specified in seconds as the second argument to the constructor.
 
 ```typescript
 import { FileStream, HOUR, DAY, WEEK } from "@/lib/ccStructLog";
@@ -221,7 +274,7 @@ const dailyLog = new FileStream("app_daily.log", DAY);
 // Rotate weekly
 const weeklyLog = new FileStream("app_weekly.log", WEEK);
 
-// No rotation
+// No rotation (pass 0 or undefined)
 const permanentLog = new FileStream("permanent.log", 0);
 ```
 
@@ -243,15 +296,22 @@ const permanentLog = new FileStream("permanent.log", 0);
    - `error`: Errors that affect a single operation but not the whole app.
    - `fatal`: Critical errors that require the application to shut down.
 
-3. **Use a `source`**: Identify which component generated the log.
+3. **Use a `source`**: Identify which component generated the log using `processor.addSource`.
    ```typescript
-   const logger = createDevLogger({ source: "UserService" });
+   import { Logger, processor } from "@/lib/ccStructLog";
+   
+   const logger = new Logger({
+       processors: [processor.addSource("UserService")],
+       // ...
+   });
    ```
 
 4. **Sanitize Sensitive Data**: Use a processor to remove passwords, API keys, etc.
    ```typescript
+   import { Logger, processor } from "@/lib/ccStructLog";
+   
    const secureLogger = new Logger({
-       processors: [ removeFields(["password", "token"]) ],
+       processors: [ processor.removeFields(["password", "token"]) ],
        //...
    });
    ```
