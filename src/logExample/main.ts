@@ -7,56 +7,16 @@
 
 import {
     Logger,
-    createDevLogger,
-    createProdLogger,
-
-    // Processors
-    addTimestamp,
-    addFormattedTimestamp,
-    addFullTimestamp,
-    addSource,
-    addComputerId,
-    addStaticFields,
-    transformField,
-
-    // Renderers
-    textRenderer,
-    jsonRenderer,
-
-    // Streams
+    processor,
     ConsoleStream,
     FileStream,
     BufferStream,
-    DAY,
+    ConditionalStream,
     HOUR,
+    jsonRenderer,
     LogLevel,
+    textRenderer,
 } from "../lib/ccStructLog";
-import { ConditionalStream } from "@/lib/ccStructLog/streams";
-
-// =============================================================================
-// Basic Usage Examples
-// =============================================================================
-
-print("=== Basic Usage Examples ===");
-
-// 1. Quick start with pre-configured loggers
-const devLog = createDevLogger();
-devLog.info("Application started", { version: "1.0.0", port: 8080 });
-devLog.debug("Debug information", { userId: 123, action: "login" });
-devLog.error("Something went wrong", {
-    error: "Connection failed",
-    retries: 3,
-});
-
-// 2. Production logging to file
-const prodLog = createProdLogger("app.log", {
-    source: "MyApplication",
-    rotationInterval: DAY,
-    includeConsole: true,
-});
-
-prodLog.info("User action", { userId: 456, action: "purchase", amount: 29.99 });
-prodLog.warn("Low disk space", { available: 1024, threshold: 2048 });
 
 // =============================================================================
 // Custom Logger Configurations
@@ -67,10 +27,10 @@ print("\n=== Custom Logger Configurations ===");
 // 4. Custom logger with specific processors and renderer
 const customLogger = new Logger({
     processors: [
-        addFullTimestamp(),
-        addComputerId(),
-        addSource("CustomApp"),
-        addStaticFields({
+        processor.addTimestamp(),
+        processor.addComputerId(),
+        processor.addSource("CustomApp"),
+        processor.addStaticFields({
             environment: "development",
             version: "2.1.0",
         }),
@@ -109,10 +69,10 @@ const sanitizePasswords = (event: Map<string, unknown>) => {
 
 const secureLogger = new Logger({
     processors: [
-        addTimestamp(),
+        processor.addTimestamp(),
         addRequestId,
         sanitizePasswords,
-        transformField("message", (msg) => `[SECURE] ${msg}`),
+        processor.transformField("message", (msg) => `[SECURE] ${msg}`),
     ],
     renderer: jsonRenderer,
     streams: [new ConsoleStream()],
@@ -133,7 +93,7 @@ print("\n=== Stream Examples ===");
 // 11. Buffer stream for batch processing
 const bufferStream = new BufferStream(100); // Keep last 100 messages
 const bufferLogger = new Logger({
-    processors: [addFormattedTimestamp()],
+    processors: [processor.addTimestamp()],
     renderer: textRenderer,
     streams: [
         new ConditionalStream(new ConsoleStream(), (msg, event) => {
@@ -162,7 +122,7 @@ for (const msg of bufferedMessages) {
 
 // 12. Multi-stream with different formats
 const multiFormatLogger = new Logger({
-    processors: [addFullTimestamp(), addComputerId()],
+    processors: [processor.addTimestamp(), processor.addComputerId()],
     renderer: (event) => "default", // This won't be used
     streams: [
         // Console with human-readable format
@@ -196,7 +156,7 @@ print("\n=== Error Handling Examples ===");
 // 13. Robust error handling
 const robustLogger = new Logger({
     processors: [
-        addTimestamp(),
+        processor.addTimestamp(),
         // Processor that might fail
         (event) => {
             try {
@@ -231,7 +191,7 @@ print("\n=== Cleanup Examples ===");
 
 // 14. Proper cleanup
 const fileLogger = new Logger({
-    processors: [addTimestamp()],
+    processors: [processor.addTimestamp()],
     renderer: jsonRenderer,
     streams: [new FileStream("temp.log")],
 });
@@ -249,37 +209,3 @@ print("- all.log (complete log)");
 print("- debug.log (detailed debug info)");
 print("- structured.log (JSON format)");
 print("- temp.log (temporary file, now closed)");
-
-// =============================================================================
-// Performance Comparison (commented out to avoid noise)
-// =============================================================================
-
-/*
-print("\n=== Performance Comparison ===");
-
-const iterations = 1000;
-
-// Test simple console logging
-const startTime1 = os.clock();
-const simpleLogger = createMinimalLogger();
-for (let i = 0; i < iterations; i++) {
-    simpleLogger.info(`Simple message ${i}`);
-}
-const endTime1 = os.clock();
-print(`Simple Console Logger: ${endTime1 - startTime1} seconds`);
-
-// Test complex processor chain
-const startTime2 = os.clock();
-const complexLogger = createDetailedLogger("perf_test.log", {
-    source: "PerfTest"
-});
-for (let i = 0; i < iterations; i++) {
-    complexLogger.info(`Complex message ${i}`, {
-        iteration: i,
-        data: { nested: { value: i * 2 } }
-    });
-}
-complexLogger.close();
-const endTime2 = os.clock();
-print(`Complex Processor Chain: ${endTime2 - startTime2} seconds`);
-*/
