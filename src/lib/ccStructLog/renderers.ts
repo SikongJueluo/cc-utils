@@ -6,7 +6,7 @@
  * different output formats (JSON, console-friendly, etc.).
  */
 
-import { Renderer } from "./types";
+import { LogLevel, Renderer } from "./types";
 
 /**
  * Renders log events as JSON strings.
@@ -43,44 +43,30 @@ export const jsonRenderer: Renderer = (event) => {
  * timestamp, level, message, and additional context fields formatted
  * in a readable way.
  *
- * Format: [HH:MM:SS] [LEVEL] message { key=value, key2=value2 }
+ * Format: [YYYY-MM-DD HH:MM:SS] [LEVEL] message  key=value, key2=value2
  *
  * @param event - The log event to render
  * @returns Human-readable string representation
  */
 export const textRenderer: Renderer = (event) => {
     // Extract core components
-    const timestamp = event.get("timestamp") as LuaDate | undefined;
-    const timeStr = event.get("time") as string | undefined;
-    const level = (event.get("level") as string)?.toUpperCase() ?? "UNKNOWN";
+    const timeStr = event.get("timestamp") as string | undefined;
+    const level: string | undefined = LogLevel[event.get("level") as LogLevel];
     const message = (event.get("message") as string) ?? "";
 
-    // Format timestamp
-    let timestampStr = "";
-    if (timeStr) {
-        timestampStr = timeStr;
-    } else if (timestamp) {
-        timestampStr = `${string.format("%02d", timestamp.hour)}:${string.format("%02d", timestamp.min)}:${string.format("%02d", timestamp.sec)}`;
-    }
-
     // Start building the output
-    let output = `[${timestampStr}] [${level}] ${message}`;
+    let output = `[${timeStr}] [${level}] ${message} \t`;
 
     // Add context fields (excluding the core fields we already used)
     const contextFields: string[] = [];
     for (const [key, value] of event.entries()) {
-        if (
-            key !== "timestamp" &&
-            key !== "time" &&
-            key !== "level" &&
-            key !== "message"
-        ) {
+        if (key !== "timestamp" && key !== "level" && key !== "message") {
             contextFields.push(`${key}=${tostring(value)}`);
         }
     }
 
     if (contextFields.length > 0) {
-        output += ` { ${contextFields.join(", ")} }`;
+        output += contextFields.join(", ");
     }
 
     return output;

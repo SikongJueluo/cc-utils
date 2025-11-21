@@ -6,7 +6,7 @@
  * implements the Stream interface and handles its own output logic.
  */
 
-import { Stream, LogEvent } from "./types";
+import { LogLevel, Stream, LogEvent } from "./types";
 
 /**
  * Console stream that outputs to the CC:Tweaked terminal.
@@ -16,14 +16,14 @@ import { Stream, LogEvent } from "./types";
  * color after writing each message.
  */
 export class ConsoleStream implements Stream {
-    private levelColors: Map<string, number> = new Map([
-        ["trace", colors.lightGray],
-        ["debug", colors.gray],
-        ["info", colors.white],
-        ["warn", colors.orange],
-        ["error", colors.red],
-        ["fatal", colors.red],
-    ]);
+    private levelColors: { [key: string]: number } = {
+        Trace: colors.lightGray,
+        Debug: colors.gray,
+        Info: colors.green,
+        Warn: colors.orange,
+        Error: colors.red,
+        Fatal: colors.red,
+    };
 
     /**
      * Write a formatted log message to the terminal.
@@ -32,8 +32,9 @@ export class ConsoleStream implements Stream {
      * @param event - The original log event for context (used for level-based coloring)
      */
     public write(message: string, event: LogEvent): void {
-        const level = event.get("level") as string | undefined;
-        const color = level ? this.levelColors.get(level) : undefined;
+        const level: string | undefined =
+            LogLevel[event.get("level") as LogLevel];
+        const color = level !== undefined ? this.levelColors[level] : undefined;
 
         if (color !== undefined) {
             const originalColor = term.getTextColor();
