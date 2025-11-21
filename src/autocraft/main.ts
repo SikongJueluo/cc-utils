@@ -15,7 +15,7 @@ import {
 const logger = new Logger({
     processors: [
         processor.filterByLevel(LogLevel.Info),
-        processor.addFullTimestamp(),
+        processor.addTimestamp(),
     ],
     renderer: textRenderer,
     streams: [new ConsoleStream()],
@@ -33,22 +33,12 @@ const peripheralsNames = {
     packageExtractor: "create:packager_0",
 };
 
-const packsInventory = peripheral.wrap(
-    peripheralsNames.packsInventory,
-) as InventoryPeripheral;
-const itemsInventory = peripheral.wrap(
-    peripheralsNames.itemsInventory,
-) as InventoryPeripheral;
-const packageExtractor = peripheral.wrap(
-    peripheralsNames.packageExtractor,
-) as InventoryPeripheral;
-const blockReader = peripheral.wrap(
-    peripheralsNames.blockReader,
-) as BlockReaderPeripheral;
-const wiredModem = peripheral.wrap(
-    peripheralsNames.wiredModem,
-) as WiredModemPeripheral;
-const turtleLocalName = wiredModem.getNameLocal();
+let packsInventory: InventoryPeripheral;
+let itemsInventory: InventoryPeripheral;
+let packageExtractor: InventoryPeripheral;
+let blockReader: BlockReaderPeripheral;
+let wiredModem: WiredModemPeripheral;
+let turtleLocalName: string;
 
 enum State {
     IDLE,
@@ -57,9 +47,39 @@ enum State {
 }
 
 function main() {
+    while (true) {
+        try {
+            packsInventory = peripheral.wrap(
+                peripheralsNames.packsInventory,
+            ) as InventoryPeripheral;
+            itemsInventory = peripheral.wrap(
+                peripheralsNames.itemsInventory,
+            ) as InventoryPeripheral;
+            packageExtractor = peripheral.wrap(
+                peripheralsNames.packageExtractor,
+            ) as InventoryPeripheral;
+            blockReader = peripheral.wrap(
+                peripheralsNames.blockReader,
+            ) as BlockReaderPeripheral;
+            wiredModem = peripheral.wrap(
+                peripheralsNames.wiredModem,
+            ) as WiredModemPeripheral;
+            turtleLocalName = wiredModem.getNameLocal();
+
+            logger.info("Peripheral initialization complete...");
+            break;
+        } catch (error) {
+            logger.warn(
+                `Peripheral initialization failed for ${String(error)}, try again...`,
+            );
+            sleep(1);
+        }
+    }
+
     const craftManager = new CraftManager(turtleLocalName, itemsInventory);
     const recipesQueue = new Queue<CraftRecipe>();
     const recipesWaitingMap = new Map<number, CraftRecipe[] | CraftRecipe>();
+
     let currentState = State.IDLE;
     let nextState = State.IDLE;
     let hasPackage = redstone.getInput(peripheralsNames.redstone);
