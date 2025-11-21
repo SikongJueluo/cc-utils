@@ -4,6 +4,9 @@
  */
 
 import { LogLevel, LoggerOptions, LogEvent, ILogger } from "./types";
+import { processor } from "./processors";
+import { ConsoleStream } from "./streams";
+import { textRenderer } from "./renderers";
 
 /**
  * The main Logger class that orchestrates the logging pipeline.
@@ -13,25 +16,18 @@ import { LogLevel, LoggerOptions, LogEvent, ILogger } from "./types";
  */
 export class Logger implements ILogger {
     private options: LoggerOptions;
+    private loggerName?: string;
 
     /**
      * Create a new Logger instance.
      *
      * @param options - Configuration options for the logger
+     * @param name - The name of the logger
      */
-    constructor(options: Partial<LoggerOptions>) {
-        this.options = {
-            processors: options.processors ?? [],
-            renderer: options.renderer ?? this.defaultRenderer,
-            streams: options.streams ?? [],
-        };
+    constructor(options: LoggerOptions, name?: string) {
+        this.options = options;
+        this.loggerName = name;
     }
-
-    /**
-     * Default renderer that returns an empty string.
-     * Used as fallback when no renderer is provided.
-     */
-    private defaultRenderer = (): string => "";
 
     /**
      * Main logging method that handles the complete logging pipeline.
@@ -51,6 +47,8 @@ export class Logger implements ILogger {
             ["message", message],
             ...Object.entries(context),
         ]);
+        if (this.loggerName !== undefined)
+            event.set("loggerName", this.loggerName);
 
         // 2. Process through the processor chain
         for (const processor of this.options.processors) {
@@ -62,12 +60,11 @@ export class Logger implements ILogger {
 
         // 3. Render and output if event wasn't dropped
         if (event !== undefined) {
-            const finalEvent = event;
-            const output = this.options.renderer(finalEvent);
+            const output = this.options.renderer(event);
 
             // Send to all configured streams
             for (const stream of this.options.streams) {
-                stream.write(output, finalEvent);
+                stream.write(output, event);
             }
         }
     }
@@ -162,4 +159,18 @@ export class Logger implements ILogger {
             }
         }
     }
+}
+
+let globalLoggerConfig: LoggerOptions = {
+    processors: [processor.addTimestamp()],
+    renderer: textRenderer,
+    streams: [new ConsoleStream()],
+};
+
+export function getStructLogger(name?: string): Logger {
+    return new Logger(globalLoggerConfig, name);
+}
+
+export function setStructLoggerConfig(config: LoggerOptions): void {
+    globalLoggerConfig = config;
 }

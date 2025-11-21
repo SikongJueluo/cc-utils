@@ -61,26 +61,10 @@ export namespace processor {
                 return event; // Pass through if no level is set
             }
 
-            if (eventLevel !== undefined && eventLevel < minLevel) {
+            if (eventLevel < minLevel) {
                 return undefined; // Drop the log event
             }
 
-            return event;
-        };
-    }
-
-    /**
-     * Adds a logger name/source to the log event.
-     *
-     * This processor is useful when you have multiple loggers in your application
-     * and want to identify which component generated each log entry.
-     *
-     * @param name - The name/source to add to log events
-     * @returns A processor function that adds the source name
-     */
-    export function addSource(name: string): Processor {
-        return (event) => {
-            event.set("source", name);
             return event;
         };
     }

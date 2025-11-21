@@ -14,7 +14,11 @@ import { LogLevel, Stream, LogEvent } from "./types";
 interface FileStreamConfig {
     /** Path to the log file */
     filePath: string;
-    /** Time in seconds between file rotations (0 = no rotation) */
+    /**
+     * Time in seconds between file rotations (0 = no rotation)
+     * Time must larger than one DAY
+     * @default 0
+     */
     rotationInterval?: number;
     /** Auto-cleanup configuration */
     autoCleanup?: {
@@ -92,6 +96,8 @@ export class FileStream implements Stream {
     constructor(config: FileStreamConfig) {
         this.filePath = config.filePath;
         this.rotationInterval = config.rotationInterval || 0;
+        if (this.rotationInterval !== 0 && this.rotationInterval < DAY)
+            throw Error("Rotation interval must be at least one day");
         this.autoCleanupConfig = config.autoCleanup;
         this.lastRotationTime = os.time();
         this.openFile();
@@ -124,13 +130,13 @@ export class FileStream implements Stream {
      * Generate a filename with timestamp for file rotation.
      */
     private getRotatedFilename(): string {
-        const currentTime = os.time();
+        const currentTime = os.time(os.date("*t"));
         const rotationPeriod =
             Math.floor(currentTime / this.rotationInterval) *
             this.rotationInterval;
         const date = os.date("*t", rotationPeriod) as LuaDate;
 
-        const timestamp = `${date.year}-${string.format("%02d", date.month)}-${string.format("%02d", date.day)}_${string.format("%02d", date.hour)}-${string.format("%02d", date.min)}`;
+        const timestamp = `${date.year}-${string.format("%02d", date.month)}-${string.format("%02d", date.day)}`;
 
         // Split filename and extension
         const splitStrs = this.filePath.split(".");
@@ -150,12 +156,11 @@ export class FileStream implements Stream {
         if (this.rotationInterval <= 0) return;
 
         const currentTime = os.time();
-        const currentPeriod = Math.floor(currentTime / this.rotationInterval);
-        const lastPeriod = Math.floor(
-            this.lastRotationTime / this.rotationInterval,
-        );
-
-        if (currentPeriod > lastPeriod) {
+        if (
+            Math.floor(
+                (currentTime - this.lastRotationTime) / this.rotationInterval,
+            ) > 0
+        ) {
             // Time to rotate
             this.close();
             this.lastRotationTime = currentTime;
@@ -177,20 +182,12 @@ export class FileStream implements Stream {
 
         // Cleanup by file count if configured
         if (config.maxFiles !== undefined && config.maxFiles > 0) {
-            this.cleanupOldLogFiles(
-                config.maxFiles,
-                config.logDir,
-                config.pattern,
-            );
+            this.cleanupOldLogFiles(config.maxFiles, config.logDir);
         }
 
         // Cleanup by total size if configured
         if (config.maxSizeBytes !== undefined && config.maxSizeBytes > 0) {
-            this.cleanupLogFilesBySize(
-                config.maxSizeBytes,
-                config.logDir,
-                config.pattern,
-            );
+            this.cleanupLogFilesBySize(config.maxSizeBytes, config.logDir);
         }
     }
 
@@ -232,16 +229,16 @@ export class FileStream implements Stream {
      * Search for log files matching the specified pattern in a directory.
      *
      * @param logDir - Directory containing log files (defaults to directory of current log file)
-     * @param fileName - Base File Name
      * @returns Array of log file information including path, size, and modification time
      */
     private searchLogFiles(
         logDir?: string,
-        fileName?: string,
     ): Array<{ path: string; size: number; modified: number }> {
         const directory = logDir || fs.getDir(this.filePath);
-        const baseFileName =
-            fileName || fs.getName(this.filePath).split(".")[0];
+        const splitStrs = this.filePath.split(".");
+
+        const name = splitStrs[0] + "_";
+        const ext = splitStrs.length > 1 ? splitStrs[1] : "log";
 
         if (!fs.exists(directory) || !fs.isDir(directory)) {
             return [];
@@ -256,7 +253,12 @@ export class FileStream implements Stream {
 
         for (const file of files) {
             const fullPath = fs.combine(directory, file);
-            if (fs.isDir(fullPath) || !file.startsWith(baseFileName)) continue;
+            if (
+                fs.isDir(fullPath) ||
+                !file.startsWith(name) ||
+                !file.endsWith(ext)
+            )
+                continue;
 
             const attributes = fs.attributes(fullPath);
             if (attributes !== undefined) {
@@ -276,16 +278,11 @@ export class FileStream implements Stream {
      *
      * @param maxFiles - Maximum number of log files to keep
      * @param logDir - Directory containing log files (defaults to directory of current log file)
-     * @param fileName - Base File Name
      */
-    public cleanupOldLogFiles(
-        maxFiles: number,
-        logDir?: string,
-        fileName?: string,
-    ): void {
+    public cleanupOldLogFiles(maxFiles: number, logDir?: string): void {
         if (maxFiles <= 0) return;
 
-        const logFiles = this.searchLogFiles(logDir, fileName);
+        const logFiles = this.searchLogFiles(logDir);
         if (logFiles.length <= maxFiles) return;
 
         // Sort by modification time (newest first)
@@ -310,14 +307,10 @@ export class FileStream implements Stream {
      * @param logDir - Directory containing log files (defaults to directory of current log file)
      * @param fileName - Base File Name
      */
-    public cleanupLogFilesBySize(
-        maxSizeBytes: number,
-        logDir?: string,
-        fileName?: string,
-    ): void {
+    public cleanupLogFilesBySize(maxSizeBytes: number, logDir?: string): void {
         if (maxSizeBytes <= 0) return;
 
-        const logFiles = this.searchLogFiles(logDir, fileName);
+        const logFiles = this.searchLogFiles(logDir);
         if (logFiles.length === 0) return;
 
         // Calculate total size

@@ -53,14 +53,20 @@ export const textRenderer: Renderer = (event) => {
     const timeStr = event.get("timestamp") as string | undefined;
     const level: string | undefined = LogLevel[event.get("level") as LogLevel];
     const message = (event.get("message") as string) ?? "";
+    const loggerName = event.get("loggerName") as string | undefined;
 
     // Start building the output
-    let output = `[${timeStr}] [${level}] ${message} \t`;
+    let output = `${timeStr} [${level}] ${message} \t ${loggerName !== undefined ? "[" + loggerName + "]" : ""}`;
 
     // Add context fields (excluding the core fields we already used)
     const contextFields: string[] = [];
     for (const [key, value] of event.entries()) {
-        if (key !== "timestamp" && key !== "level" && key !== "message") {
+        if (
+            key !== "timestamp" &&
+            key !== "level" &&
+            key !== "message" &&
+            key !== "loggerName"
+        ) {
             contextFields.push(`${key}=${tostring(value)}`);
         }
     }
