@@ -36,7 +36,13 @@ const customLogger = new Logger({
         }),
     ],
     renderer: jsonRenderer,
-    streams: [new ConsoleStream(), new FileStream("custom.log", HOUR)],
+    streams: [
+        new ConsoleStream(),
+        new FileStream({
+            filePath: "custom.log",
+            rotationInterval: HOUR,
+        }),
+    ],
 });
 
 customLogger.info("Custom logger example", {
@@ -136,7 +142,10 @@ const multiFormatLogger = new Logger({
         {
             write: (_, event) => {
                 const formatted = jsonRenderer(event);
-                new FileStream("structured.log").write(formatted, event);
+                new FileStream({ filePath: "structured.log" }).write(
+                    formatted,
+                    event,
+                );
             },
         },
     ],
@@ -193,7 +202,7 @@ print("\n=== Cleanup Examples ===");
 const fileLogger = new Logger({
     processors: [processor.addTimestamp()],
     renderer: jsonRenderer,
-    streams: [new FileStream("temp.log")],
+    streams: [new FileStream({ filePath: "structured.log" })],
 });
 
 fileLogger.info("Temporary log entry");

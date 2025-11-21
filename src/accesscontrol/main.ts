@@ -13,6 +13,7 @@ import {
     FileStream,
     Logger,
     LogLevel,
+    MB,
     processor,
     textRenderer,
 } from "@/lib/ccStructLog";
@@ -29,7 +30,15 @@ const logger = new Logger({
     renderer: textRenderer,
     streams: [
         new ConditionalStream(new ConsoleStream(), () => isOnConsoleStream),
-        new FileStream("accesscontrol.log", DAY),
+        new FileStream({
+            filePath: "accesscontrol.log",
+            rotationInterval: DAY,
+            autoCleanup: {
+                enabled: true,
+                maxFiles: 7,
+                maxSizeBytes: MB,
+            },
+        }),
     ],
 });
 
